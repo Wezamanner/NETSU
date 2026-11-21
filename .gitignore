@@ -1,0 +1,24 @@
+# Secrets — never commit Supabase keys
+.env
+.env.*
+!.env.example
+Netsu_App/dart_defines.json
+app/dart_defines.json
+dashboard/js/config.js
+
+# Flutter
+Netsu_App/.dart_tool/
+Netsu_App/.flutter-plugins
+Netsu_App/.flutter-plugins-dependencies
+Netsu_App/build/
+Netsu_App/.packages
+Netsu_App/android/.gradle/
+Netsu_App/android/local.properties
+
+# Dashboard
+Netsu_dashboard/node_modules/
+Netsu_dashboard/dist/
+
+# OS / editor
+.DS_Store
+*.log
