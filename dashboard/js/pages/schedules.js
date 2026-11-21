@@ -1,15 +1,19 @@
 import { t } from '../i18n.js'
 import { supabase } from '../supabase-client.js'
+import { scheduleBadge, searchInput, setBusy, skeletonTable, toast } from '../ui/components.js'
 import { clear, el, field } from '../ui/dom.js'
 import { assignmentWarnings, blocksSave } from '../utils/schedule.js'
 import { addisLocalToUtc, formatAddisDate, formatAddisTime } from '../utils/time.js'
 
 export async function renderSchedules(outlet) {
   clear(outlet)
-  const status = el('p', { class: 'success', hidden: true })
-  const error = el('p', { class: 'error', hidden: true })
-  const warning = el('p', { class: 'note', hidden: true })
-  const list = el('div', { class: 'table-wrap panel' })
+  const status = el('p', { class: 'success', role: 'status', hidden: true })
+  const error = el('p', { class: 'error', role: 'alert', hidden: true })
+  const warning = el('p', { class: 'note', role: 'status', hidden: true })
+  const tableHost = el('div', { class: 'table-wrap' })
+  let query = ''
+  let statusFilter = 'all'
+
   const area = el('select', { required: true })
   const date = el('input', { type: 'date', required: true })
   const start = el('input', { type: 'time', required: true })
@@ -17,19 +21,39 @@ export async function renderSchedules(outlet) {
   const route = el('select')
   const truck = el('select')
   const workers = el('select', { multiple: true, size: '5' })
-  const form = el('form', { class: 'panel', style: 'padding:16px' }, [
+  const submitBtn = el('button', { type: 'submit', text: t('saveDraft') })
+
+  const form = el('form', { class: 'panel panel-pad' }, [
     el('h2', { text: t('saveDraft') }),
-    field(t('area'), area),
-    field(t('collectionDate'), date),
-    field(t('startTime'), start),
-    field(t('endTime'), end),
-    field(t('routes'), route),
-    field(t('trucks'), truck),
+    el('div', { class: 'form-grid' }, [
+      field(t('area'), area),
+      field(t('collectionDate'), date),
+      field(t('startTime'), start),
+      field(t('endTime'), end),
+      field(t('routes'), route),
+      field(t('trucks'), truck),
+    ]),
     field(t('workers'), workers),
     warning,
     el('p', { class: 'muted', text: t('draftNote') }),
-    el('button', { type: 'submit', text: t('saveDraft') }),
+    submitBtn,
   ])
+
+  const filterBar = el('div', { class: 'filter-pills', role: 'group', 'aria-label': t('status') })
+  const listPanel = el('section', { class: 'panel' }, [
+    el('div', { class: 'list-toolbar' }, [
+      searchInput({
+        placeholder: t('searchPlaceholder'),
+        onInput: (value) => {
+          query = value
+          drawList()
+        },
+      }),
+      filterBar,
+    ]),
+    tableHost,
+  ])
+
   outlet.append(
     el('header', { class: 'page-head' }, [
       el('h1', { text: t('schedules') }),
@@ -38,8 +62,63 @@ export async function renderSchedules(outlet) {
     status,
     error,
     form,
-    list,
+    listPanel,
   )
+
+  tableHost.replaceChildren(skeletonTable(4))
+
+  let schedules = []
+  let areaName = new Map()
+  const statuses = ['all', 'draft', 'published', 'assigned', 'on_the_way', 'in_progress', 'completed', 'delayed', 'cancelled']
+  const drawFilters = () => {
+    filterBar.replaceChildren(...statuses.map((s) => el('button', {
+      type: 'button',
+      class: 'pill-btn',
+      text: s === 'all' ? t('allFilter') : t(`status_${s}`),
+      'aria-pressed': statusFilter === s ? 'true' : 'false',
+      onclick: () => {
+        statusFilter = s
+        drawFilters()
+        drawList()
+      },
+    })))
+  }
+
+  const drawList = () => {
+    const filtered = schedules.filter((item) => {
+      if (statusFilter !== 'all' && item.status !== statusFilter) return false
+      if (!query) return true
+      const label = areaName.get(item.area_id) ?? ''
+      return `${label} ${item.collection_date} ${t(`status_${item.status}`)}`.toLowerCase().includes(query)
+    })
+    if (schedules.length === 0) {
+      tableHost.replaceChildren(el('p', { class: 'state', text: t('empty') }))
+      return
+    }
+    if (filtered.length === 0) {
+      tableHost.replaceChildren(el('p', { class: 'state', text: t('noMatches') }))
+      return
+    }
+    const body = el('tbody')
+    for (const item of filtered) {
+      const when = `${formatAddisDate(item.expected_start)} · ${formatAddisTime(item.expected_start)}`
+      body.append(el('tr', {}, [
+        el('td', { class: 'strong-cell', text: areaName.get(item.area_id) ?? '' }),
+        el('td', { class: 'mono', text: when }),
+        el('td', {}, [scheduleBadge(item.status)]),
+      ]))
+    }
+    tableHost.replaceChildren(el('table', {}, [
+      el('thead', {}, [el('tr', {}, [
+        el('th', { text: t('area') }),
+        el('th', { text: t('expected') }),
+        el('th', { text: t('status') }),
+      ])]),
+      body,
+    ]))
+  }
+
+  drawFilters()
 
   const [areaResult, routeResult, truckResult, workerResult, scheduleResult, linkResult, sessionResult] =
     await Promise.all([
@@ -53,6 +132,7 @@ export async function renderSchedules(outlet) {
     ])
   if (areaResult.error || scheduleResult.error) {
     show(error, t('setupBody'))
+    tableHost.replaceChildren(el('p', { class: 'state', text: t('empty') }))
     return
   }
 
@@ -61,11 +141,11 @@ export async function renderSchedules(outlet) {
   const trucks = truckResult.data ?? []
   const workerRows = workerResult.data ?? []
   const links = linkResult.data ?? []
-  const schedules = (scheduleResult.data ?? []).map((item) => ({
+  schedules = (scheduleResult.data ?? []).map((item) => ({
     ...item,
     worker_ids: links.filter((link) => link.schedule_id === item.id).map((link) => link.worker_id),
   }))
-  const areaName = new Map(areas.map((item) => [item.id, `${item.kebele_code} — ${item.name}`]))
+  areaName = new Map(areas.map((item) => [item.id, `${item.kebele_code} — ${item.name}`]))
   const userId = sessionResult.data.session?.user.id ?? null
 
   fillSelect(area, [{ value: '', text: t('selectArea') }, ...areas.map((item) => ({
@@ -106,9 +186,7 @@ export async function renderSchedules(outlet) {
     if (messages.length === 0) hide(warning)
     else show(warning, messages.join(' '))
   }
-  area.addEventListener('change', () => {
-    refreshRoutes()
-  })
+  area.addEventListener('change', refreshRoutes)
   for (const input of [date, start, end, truck, workers]) {
     input.addEventListener('change', refreshWarnings)
   }
@@ -148,8 +226,10 @@ export async function renderSchedules(outlet) {
     if (warnings.length) show(warning, warnings.map(warningText).join(' '))
     if (blocksSave(warnings)) {
       show(error, t('warnMaintenance'))
+      toast(t('warnMaintenance'), 'error')
       return
     }
+    setBusy(submitBtn, true, t('saveDraft'))
     const { data: created, error: saveError } = await supabase
       .from('collection_schedules')
       .insert({
@@ -165,7 +245,9 @@ export async function renderSchedules(outlet) {
       .select('id')
       .single()
     if (saveError || !created) {
+      setBusy(submitBtn, false, t('saveDraft'))
       show(error, t('scheduleFailed'))
+      toast(t('scheduleFailed'), 'error')
       return
     }
     if (workerIds.length) {
@@ -174,7 +256,9 @@ export async function renderSchedules(outlet) {
       )
       if (workerError) {
         await supabase.from('collection_schedules').delete().eq('id', created.id)
+        setBusy(submitBtn, false, t('saveDraft'))
         show(error, t('scheduleFailed'))
+        toast(t('scheduleFailed'), 'error')
         return
       }
     }
@@ -193,9 +277,11 @@ export async function renderSchedules(outlet) {
         worker_ids: workerIds,
       },
     })
+    setBusy(submitBtn, false, t('saveDraft'))
     if (historyError) {
       await supabase.from('collection_schedules').delete().eq('id', created.id)
       show(error, t('scheduleFailed'))
+      toast(t('scheduleFailed'), 'error')
       return
     }
     schedules.unshift({
@@ -213,34 +299,11 @@ export async function renderSchedules(outlet) {
     end.value = ''
     hide(warning)
     show(status, t('scheduleSaved'))
-    drawList(list, schedules, areaName)
+    toast(t('scheduleSaved'), 'success')
+    drawList()
   })
 
-  drawList(list, schedules, areaName)
-}
-
-function drawList(list, schedules, areaName) {
-  if (schedules.length === 0) {
-    list.replaceChildren(el('p', { class: 'state', text: t('empty') }))
-    return
-  }
-  const body = el('tbody')
-  for (const item of schedules) {
-    const when = `${formatAddisDate(item.expected_start)} ${formatAddisTime(item.expected_start)}`
-    body.append(el('tr', {}, [
-      el('td', { text: areaName.get(item.area_id) ?? '' }),
-      el('td', { text: when }),
-      el('td', { text: t(`status_${item.status}`) }),
-    ]))
-  }
-  list.replaceChildren(el('table', {}, [
-    el('thead', {}, [el('tr', {}, [
-      el('th', { text: t('area') }),
-      el('th', { text: t('expected') }),
-      el('th', { text: t('status') }),
-    ])]),
-    body,
-  ]))
+  drawList()
 }
 
 function fillSelect(node, options) {

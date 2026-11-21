@@ -117,6 +117,21 @@ const dictionaries = {
     status_completed: 'Completed',
     status_delayed: 'Delayed',
     status_cancelled: 'Cancelled',
+    searchPlaceholder: 'Search...',
+    clearSearch: 'Clear search',
+    allFilter: 'All',
+    noMatches: 'No matching items found.',
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
+    openMenu: 'Open navigation menu',
+    close: 'Close',
+    confirm: 'Confirm',
+    cancel: 'Cancel',
+    confirmToggleTitle: 'Confirm status change',
+    confirmDeactivateBody: 'Deactivating hides this record from active service. You can activate it again later.',
+    statusUpdated: 'Status updated.',
+    refresh: 'Refresh',
+    activeAreasCount: 'active areas on map',
   },
   am: {
     appTitle: 'Netsu',
@@ -234,6 +249,21 @@ const dictionaries = {
     status_completed: 'ተጠናቋል',
     status_delayed: 'ዘግይቷል',
     status_cancelled: 'ተሰርዟል',
+    searchPlaceholder: 'ፈልግ...',
+    clearSearch: 'ፍለጋን አጽዳ',
+    allFilter: 'ሁሉም',
+    noMatches: 'ተዛማጅ ውጤት አልተገኘም።',
+    showPassword: 'የይለፍ ቃል አሳይ',
+    hidePassword: 'የይለፍ ቃል ደብቅ',
+    openMenu: 'የምናሌ ዝርዝር ክፈት',
+    close: 'ዝጋ',
+    confirm: 'አረጋግጥ',
+    cancel: 'ሰርዝ',
+    confirmToggleTitle: 'የሁኔታ ለውጥ አረጋግጥ',
+    confirmDeactivateBody: 'ማቦዘን ይህን መዝገብ ከንቁ አገልግሎት ይደብቃል። በኋላ እንደገና ማንቃት ይችላሉ።',
+    statusUpdated: 'ሁኔታው ተዘምኗል።',
+    refresh: 'አድስ',
+    activeAreasCount: 'ንቁ አካባቢዎች በካርታው ላይ',
   },
   om: {
     appTitle: 'Netsu',
@@ -351,6 +381,21 @@ const dictionaries = {
     status_completed: 'Xumurame',
     status_delayed: 'Ture',
     status_cancelled: 'Haqame',
+    searchPlaceholder: 'Barbaadi...',
+    clearSearch: 'Barbaacha haqi',
+    allFilter: 'Hunda',
+    noMatches: 'Wanti walsimu hin argamne.',
+    showPassword: 'Jecha iccitii agarsiisi',
+    hidePassword: 'Jecha iccitii dhoksi',
+    openMenu: 'Baafata bani',
+    close: 'Cufi',
+    confirm: 'Mirkaneessi',
+    cancel: 'Haqi',
+    confirmToggleTitle: 'Jijjiirama haalaa mirkaneessi',
+    confirmDeactivateBody: 'Dhaabuun galmee kana tajaajila sochii irraa dhoksa. Booda irra deebi’anii dammaqsuun ni danda’ama.',
+    statusUpdated: 'Haalli haaromfameera.',
+    refresh: 'Haaromsi',
+    activeAreasCount: 'naannoolee sochii irra kaartaa irratti',
   },
 }
 
@@ -363,7 +408,7 @@ export function getLocale() {
   } catch {
     // localStorage is unavailable in some private modes.
   }
-  return 'en'
+  return 'am'
 }
 
 export function setLocale(locale) {

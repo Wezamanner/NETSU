@@ -1,13 +1,14 @@
-import { applyDocumentLocale, getLocale, setLocale, t } from '../i18n.js'
+import { applyDocumentLocale, t } from '../i18n.js'
 import { startRouter } from '../router.js'
 import { isConfigured, supabase } from '../supabase-client.js'
+import { applyStoredTheme, languageDropdown, themeIconButton } from '../ui/components.js'
 import { el } from '../ui/dom.js'
+import { icon } from '../ui/icons.js'
 import { officeGate } from '../utils/gate.js'
 
 const root = document.querySelector('#app')
 applyDocumentLocale()
-const storedTheme = localStorage.getItem('netsu.theme')
-document.documentElement.dataset.theme = storedTheme === 'dark' ? 'dark' : 'light'
+applyStoredTheme()
 
 if (!isConfigured() || !supabase) {
   root.append(panel(t('configTitle'), t('configBody')))
@@ -23,9 +24,10 @@ if (!isConfigured() || !supabase) {
     } else if (officeGate({ signedIn: true, role }) !== 'app') {
       root.append(blocked())
     } else {
-      const outlet = el('div')
-      root.append(el('div', { class: 'shell' }, [
-        el('aside', { class: 'nav' }, [
+      const outlet = el('div', { class: 'page-outlet' })
+      const backdrop = el('div', { class: 'nav-backdrop', hidden: true })
+      const sidebar = el('aside', { class: 'nav', 'aria-label': t('appTitle') }, [
+        el('div', { class: 'nav-top' }, [
           el('a', { class: 'brand', href: '#/' }, [
             el('img', {
               class: 'logo',
@@ -33,44 +35,70 @@ if (!isConfigured() || !supabase) {
               alt: t('appTitle'),
             }),
           ]),
-          navLink('', t('dashboard')),
-          navLink('schedules', t('schedules')),
-          navLink('reports', t('reports')),
-          navLink('areas', t('areas')),
-          navLink('routes', t('routes')),
-          navLink('trucks', t('trucks')),
-          navLink('workers', t('workers')),
-          navLink('users', t('users')),
-          navLink('feedback', t('feedback')),
-          navLink('analytics', t('analytics')),
           el('button', {
             type: 'button',
-            class: 'secondary',
-            text: t('signOut'),
-            onclick: async () => {
-              await supabase.auth.signOut()
-              window.location.replace('./index.html')
-            },
-          }),
+            class: 'icon-btn nav-close',
+            'aria-label': t('close'),
+            onclick: () => setDrawer(false),
+          }, [icon('close', 20)]),
         ]),
+        el('nav', { class: 'nav-links' }, [
+          navLink('', t('dashboard'), 'dashboard'),
+          navLink('schedules', t('schedules'), 'schedules'),
+          navLink('reports', t('reports'), 'reports'),
+          navLink('areas', t('areas'), 'areas'),
+          navLink('routes', t('routes'), 'routes'),
+          navLink('trucks', t('trucks'), 'trucks'),
+          navLink('workers', t('workers'), 'workers'),
+          navLink('users', t('users'), 'users'),
+          navLink('feedback', t('feedback'), 'feedback'),
+          navLink('analytics', t('analytics'), 'analytics'),
+        ]),
+        el('button', {
+          type: 'button',
+          class: 'secondary sign-out-btn',
+          onclick: async () => {
+            await supabase.auth.signOut()
+            window.location.replace('./index.html')
+          },
+        }, [icon('signOut', 18), el('span', { text: t('signOut') })]),
+      ])
+
+      const menuBtn = el('button', {
+        type: 'button',
+        class: 'icon-btn menu-btn',
+        'aria-label': t('openMenu'),
+        'aria-expanded': 'false',
+        onclick: () => setDrawer(!sidebar.classList.contains('open')),
+      }, [icon('menu', 20)])
+
+      const setDrawer = (open) => {
+        sidebar.classList.toggle('open', open)
+        backdrop.hidden = !open
+        menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false')
+      }
+
+      backdrop.addEventListener('click', () => setDrawer(false))
+      sidebar.addEventListener('click', (event) => {
+        if (event.target.closest('a')) setDrawer(false)
+      })
+      window.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && sidebar.classList.contains('open')) setDrawer(false)
+      })
+
+      root.append(el('div', { class: 'shell' }, [
+        backdrop,
+        sidebar,
         el('main', { class: 'main' }, [
-          el('div', { class: 'toolbar' }, [
-            el('div', { class: 'lang', role: 'group', 'aria-label': t('language') }, [
-              langButton('en', t('english')),
-              langButton('am', t('amharic')),
-              langButton('om', t('afaanOromo')),
+          el('header', { class: 'topbar' }, [
+            el('div', { class: 'topbar-left' }, [
+              menuBtn,
+              el('span', { class: 'topbar-sub muted', text: t('subtitle') }),
             ]),
-            el('button', {
-              type: 'button',
-              class: 'theme-toggle',
-              text: document.documentElement.dataset.theme === 'dark' ? t('themeLight') : t('themeDark'),
-              onclick: (event) => {
-                const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'
-                localStorage.setItem('netsu.theme', next)
-                document.documentElement.dataset.theme = next
-                event.currentTarget.textContent = next === 'dark' ? t('themeLight') : t('themeDark')
-              },
-            }),
+            el('div', { class: 'topbar-right' }, [
+              languageDropdown(() => window.location.reload()),
+              themeIconButton(),
+            ]),
           ]),
           outlet,
         ]),
@@ -80,20 +108,11 @@ if (!isConfigured() || !supabase) {
   }
 }
 
-function navLink(id, label) {
-  return el('a', { href: `#/${id}`, text: label })
-}
-
-function langButton(code, label) {
-  return el('button', {
-    type: 'button',
-    text: label,
-    'aria-pressed': getLocale() === code ? 'true' : 'false',
-    onclick: () => {
-      setLocale(code)
-      window.location.reload()
-    },
-  })
+function navLink(id, label, iconName) {
+  return el('a', { href: `#/${id}` }, [
+    icon(iconName, 18),
+    el('span', { text: label }),
+  ])
 }
 
 function panel(title, body) {
