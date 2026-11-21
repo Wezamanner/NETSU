@@ -18,6 +18,8 @@ Netsu_App/android/local.properties
 # Dashboard
 Netsu_dashboard/node_modules/
 Netsu_dashboard/dist/
+dist/
+.vercel
 
 # OS / editor
 .DS_Store

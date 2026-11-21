@@ -1,0 +1,11 @@
+app/
+supabase/
+Netsu_App/
+Netsu_dashboard/
+.env
+.env.*
+dashboard/js/config.js
+dashboard/js/config.example.js
+dashboard/js/**/*.test.js
+dist/
+*.md

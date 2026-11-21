@@ -1,0 +1,12 @@
+{
+  "name": "netsu-dashboard",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node scripts/build-dashboard.mjs",
+    "test": "node --test dashboard/js/utils/*.test.js"
+  }
+}
