@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:netsu_app/features/auth/presentation/auth_controller.dart';
 import 'package:netsu_app/features/schedules/domain/area_schedule.dart';
 import 'package:netsu_app/features/schedules/domain/schedule_status.dart';
 
@@ -8,11 +9,13 @@ final scheduleRepositoryProvider = Provider<ScheduleRepository>(
 );
 
 final residentSchedulesProvider = FutureProvider<List<AreaSchedule>>((ref) {
+  final userId = ref.watch(authControllerProvider.select((s) => s.userId));
+  if (userId == null) return Future.value(const []);
   return ref.watch(scheduleRepositoryProvider).forResident();
 });
 
 final workerSchedulesProvider = FutureProvider<List<AreaSchedule>>((ref) {
-  final userId = Supabase.instance.client.auth.currentUser?.id;
+  final userId = ref.watch(authControllerProvider.select((s) => s.userId));
   if (userId == null) return Future.value(const []);
   return ref.watch(scheduleRepositoryProvider).forWorker(userId);
 });
@@ -25,7 +28,7 @@ class ScheduleRepository {
   Future<List<AreaSchedule>> forResident() async {
     final rows = await _client
         .from('collection_schedules')
-        .select('id, expected_start, expected_end, status, service_areas(name, kebele_code)')
+        .select('id, expected_start, expected_end, status, change_reason, service_areas(name, kebele_code)')
         .neq('status', 'draft')
         .order('expected_start');
     return [for (final row in rows) _schedule(row, const [])];
@@ -37,7 +40,7 @@ class ScheduleRepository {
     if (ids.isEmpty) return const [];
     final rows = await _client
         .from('collection_schedules')
-        .select('id, expected_start, expected_end, status, route_id, service_areas(name, kebele_code)')
+        .select('id, expected_start, expected_end, status, change_reason, route_id, service_areas(name, kebele_code)')
         .inFilter('id', ids)
         .order('expected_start');
     final routeIds = [for (final row in rows) if (row['route_id'] is String) row['route_id'] as String];
@@ -47,12 +50,30 @@ class ScheduleRepository {
     ];
   }
 
-  Future<void> updateStatus({required String scheduleId, required ScheduleStatus status, String? reason}) {
-    return _client.rpc('update_schedule_status', params: {
+  Future<void> updateStatus({
+    required String scheduleId,
+    required ScheduleStatus status,
+    String? reason,
+    String? completionNote,
+  }) async {
+    final params = <String, dynamic>{
       'target_schedule': scheduleId,
       'next_status': scheduleStatusToString(status),
       'reason': reason,
-    });
+      if (completionNote != null && completionNote.trim().isNotEmpty)
+        'completion_note': completionNote.trim(),
+    };
+    try {
+      await _client.rpc('update_schedule_status', params: params);
+    } on PostgrestException {
+      // Fallback if 4-arg migration hasn't been applied yet.
+      if (params.containsKey('completion_note')) {
+        params.remove('completion_note');
+        await _client.rpc('update_schedule_status', params: params);
+      } else {
+        rethrow;
+      }
+    }
   }
 
   Future<Map<String, List<MapStop>>> _stops(List<String> routeIds) async {
@@ -70,6 +91,7 @@ class ScheduleRepository {
       expectedEnd: row['expected_end'] == null ? null : DateTime.parse(row['expected_end'] as String),
       status: scheduleStatusFromString(row['status'] as String) ?? ScheduleStatus.published,
       areaName: name,
+      changeReason: row['change_reason'] as String?,
       stops: stops,
     );
   }

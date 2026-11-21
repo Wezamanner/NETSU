@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:netsu_app/features/auth/presentation/auth_controller.dart';
 import 'package:netsu_app/features/reports/domain/garbage_report.dart';
 
 final reportRepositoryProvider = Provider<ReportRepository>(
@@ -8,7 +9,15 @@ final reportRepositoryProvider = Provider<ReportRepository>(
 );
 
 final myReportsProvider = FutureProvider<List<GarbageReport>>((ref) {
+  final userId = ref.watch(authControllerProvider.select((s) => s.userId));
+  if (userId == null) return Future.value(const []);
   return ref.watch(reportRepositoryProvider).mine();
+});
+
+final workerReportsProvider = FutureProvider<List<GarbageReport>>((ref) {
+  final userId = ref.watch(authControllerProvider.select((s) => s.userId));
+  if (userId == null) return Future.value(const []);
+  return ref.watch(reportRepositoryProvider).assignedToWorker(userId);
 });
 
 class ReportRepository {
@@ -19,20 +28,32 @@ class ReportRepository {
   Future<List<GarbageReport>> mine() async {
     final rows = await _client
         .from('garbage_reports')
-        .select('id, description, status, address, lat, lng, created_at')
+        .select('id, description, status, address, lat, lng, admin_note, completed_at, created_at')
         .order('created_at', ascending: false);
-    return [
-      for (final row in rows)
-        GarbageReport(
-          id: row['id'] as String,
-          description: row['description'] as String,
-          status: row['status'] as String,
-          createdAt: DateTime.parse(row['created_at'] as String),
-          address: row['address'] as String?,
-          lat: (row['lat'] as num?)?.toDouble(),
-          lng: (row['lng'] as num?)?.toDouble(),
-        ),
-    ];
+    return [for (final row in rows) _fromRow(row)];
+  }
+
+  Future<List<GarbageReport>> assignedToWorker(String workerId) async {
+    final rows = await _client
+        .from('garbage_reports')
+        .select('id, description, status, address, lat, lng, admin_note, completed_at, created_at')
+        .eq('assigned_worker_id', workerId)
+        .order('created_at', ascending: false);
+    return [for (final row in rows) _fromRow(row)];
+  }
+
+  GarbageReport _fromRow(Map<String, dynamic> row) {
+    return GarbageReport(
+      id: row['id'] as String,
+      description: row['description'] as String,
+      status: row['status'] as String,
+      createdAt: DateTime.parse(row['created_at'] as String),
+      address: row['address'] as String?,
+      lat: (row['lat'] as num?)?.toDouble(),
+      lng: (row['lng'] as num?)?.toDouble(),
+      adminNote: row['admin_note'] as String?,
+      completedAt: row['completed_at'] == null ? null : DateTime.parse(row['completed_at'] as String),
+    );
   }
 
   Future<void> submit({

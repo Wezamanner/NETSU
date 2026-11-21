@@ -4,9 +4,12 @@ import 'package:netsu_app/core/l10n/generated/app_localizations.dart';
 import 'package:netsu_app/core/location/device_location.dart';
 import 'package:netsu_app/core/utils/load_error.dart';
 import 'package:netsu_app/core/widgets/state_views.dart';
+import 'package:netsu_app/features/areas/domain/service_area.dart';
 import 'package:netsu_app/features/auth/presentation/auth_controller.dart';
 import 'package:netsu_app/features/feedback/data/feedback_repository.dart';
 import 'package:netsu_app/features/profile/data/profile_repository.dart';
+import 'package:netsu_app/features/profile/domain/user_profile.dart';
+import 'package:netsu_app/features/schedules/data/schedule_repository.dart';
 import 'package:netsu_app/features/settings/language_picker.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -23,11 +26,76 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String? _message;
   bool _error = false;
   bool _busy = false;
+  List<ServiceArea>? _areas;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAreas();
+  }
+
+  Future<void> _loadAreas() async {
+    try {
+      final list = await ref.read(authRepositoryProvider).activeAreas();
+      if (mounted) setState(() => _areas = list);
+    } catch (_) {
+      // Optional dropdown; profile still renders cleanly without it.
+    }
+  }
 
   @override
   void dispose() {
     _comment.dispose();
     super.dispose();
+  }
+
+  Future<void> _updateArea(String areaId) async {
+    final l10n = AppLocalizations.of(context);
+    try {
+      await ref.read(profileRepositoryProvider).updateArea(areaId);
+      ref.invalidate(profileProvider);
+      ref.invalidate(residentSchedulesProvider);
+      if (!mounted) return;
+      setState(() {
+        _error = false;
+        _message = l10n.kebeleUpdated;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = true;
+        _message = l10n.errorTitle;
+      });
+    }
+  }
+
+  Future<void> _togglePref(UserProfile person, String key, bool value) async {
+    final l10n = AppLocalizations.of(context);
+    final updated = <String, bool>{
+      'in_app': person.pref('in_app'),
+      'push': person.pref('push'),
+      'sms': false,
+      'day_before': person.pref('day_before'),
+      'same_day': person.pref('same_day'),
+      'on_the_way': person.pref('on_the_way'),
+      'completed': person.pref('completed'),
+      key: value,
+    };
+    try {
+      await ref.read(profileRepositoryProvider).updateNotificationPrefs(updated);
+      ref.invalidate(profileProvider);
+      if (!mounted) return;
+      setState(() {
+        _error = false;
+        _message = l10n.prefsSaved;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = true;
+        _message = l10n.errorTitle;
+      });
+    }
   }
 
   Future<void> _saveLocation() async {
@@ -96,78 +164,159 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       loading: () => const LoadingView(),
       error: (error, _) => ErrorView(message: loadErrorMessage(error, l10n), onRetry: () => ref.invalidate(profileProvider)),
       data: (person) {
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-          children: [
-            Text(person.fullName, style: theme.textTheme.headlineSmall),
-            const SizedBox(height: 4),
-            Text(person.phone, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(l10n.kebele, style: theme.textTheme.labelLarge),
-                    const SizedBox(height: 4),
-                    Text(person.kebeleCode == null ? l10n.emptyTitle : '${person.kebeleCode} · ${person.areaName ?? ''}'),
-                    if (person.address != null) ...[const SizedBox(height: 8), Text(person.address!)],
-                    const SizedBox(height: 8),
-                    Text(l10n.kebeleConfirm, style: theme.textTheme.bodySmall),
-                    if (person.lat != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text('${l10n.coordinates}: ${person.lat!.toStringAsFixed(5)}, ${person.lng!.toStringAsFixed(5)}'),
-                      ),
-                    const SizedBox(height: 12),
-                    OutlinedButton(onPressed: _saveLocation, child: Text(l10n.saveLocation)),
-                  ],
+        final areas = _areas;
+        final currentAreaInList = areas != null && areas.any((a) => a.id == person.areaId);
+        return RefreshIndicator(
+          onRefresh: () async => ref.invalidate(profileProvider),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+            children: [
+              Text(person.fullName, style: theme.textTheme.headlineSmall),
+              const SizedBox(height: 4),
+              Text(person.phone, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(l10n.kebele, style: theme.textTheme.labelLarge),
+                      const SizedBox(height: 4),
+                      Text(person.kebeleCode == null ? l10n.emptyTitle : '${person.kebeleCode} · ${person.areaName ?? ''}'),
+                      if (person.address != null) ...[const SizedBox(height: 8), Text(person.address!)],
+                      const SizedBox(height: 8),
+                      Text(l10n.kebeleConfirm, style: theme.textTheme.bodySmall),
+                      if (areas != null && areas.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          key: ValueKey(person.areaId),
+                          initialValue: currentAreaInList ? person.areaId : null,
+                          decoration: InputDecoration(labelText: l10n.changeKebele),
+                          items: [
+                            for (final area in areas)
+                              DropdownMenuItem(value: area.id, child: Text('${area.kebeleCode} · ${area.name}')),
+                          ],
+                          onChanged: (value) {
+                            if (value != null && value != person.areaId) _updateArea(value);
+                          },
+                        ),
+                      ],
+                      if (person.lat != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text('${l10n.coordinates}: ${person.lat!.toStringAsFixed(5)}, ${person.lng!.toStringAsFixed(5)}'),
+                        ),
+                      const SizedBox(height: 12),
+                      OutlinedButton(onPressed: _saveLocation, child: Text(l10n.saveLocation)),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            const LanguagePicker(),
-            if (_message != null) ...[
-              const SizedBox(height: 12),
-              Text(_message!, style: TextStyle(color: _error ? theme.colorScheme.error : theme.colorScheme.primary)),
-            ],
-            if (person.role == 'resident') ...[
-              const SizedBox(height: 24),
-              Text(l10n.feedbackTitle, style: theme.textTheme.titleLarge),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: _kind,
-                decoration: InputDecoration(labelText: l10n.feedbackTitle),
-                items: [
-                  DropdownMenuItem(value: 'feedback', child: Text(l10n.kindFeedback)),
-                  DropdownMenuItem(value: 'complaint', child: Text(l10n.kindComplaint)),
-                ],
-                onChanged: (value) {
-                  if (value != null) setState(() => _kind = value);
-                },
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  for (var star = 1; star <= 5; star++)
-                    IconButton(
-                      onPressed: () => setState(() => _rating = star),
-                      icon: Icon(star <= _rating ? Icons.star : Icons.star_border),
-                      tooltip: '$star',
+              const SizedBox(height: 16),
+              const LanguagePicker(),
+              if (person.role == 'resident') ...[
+                const SizedBox(height: 16),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(l10n.notifPrefsTitle, style: theme.textTheme.titleMedium),
+                        const SizedBox(height: 6),
+                        Text(l10n.essentialNoticesLocked, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                        const SizedBox(height: 8),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(l10n.prefInApp),
+                          value: person.pref('in_app'),
+                          onChanged: (v) => _togglePref(person, 'in_app', v),
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(l10n.prefPush),
+                          value: person.pref('push'),
+                          onChanged: (v) => _togglePref(person, 'push', v),
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(l10n.prefSms),
+                          subtitle: Text(l10n.comingSoonBadge),
+                          value: false,
+                          onChanged: null,
+                        ),
+                        const Divider(),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(l10n.prefDayBefore),
+                          value: person.pref('day_before'),
+                          onChanged: (v) => _togglePref(person, 'day_before', v),
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(l10n.prefSameDay),
+                          value: person.pref('same_day'),
+                          onChanged: (v) => _togglePref(person, 'same_day', v),
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(l10n.prefOnTheWay),
+                          value: person.pref('on_the_way'),
+                          onChanged: (v) => _togglePref(person, 'on_the_way', v),
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(l10n.prefCompleted),
+                          value: person.pref('completed'),
+                          onChanged: (v) => _togglePref(person, 'completed', v),
+                        ),
+                      ],
                     ),
-                ],
+                  ),
+                ),
+              ],
+              if (_message != null) ...[
+                const SizedBox(height: 12),
+                Text(_message!, style: TextStyle(color: _error ? theme.colorScheme.error : theme.colorScheme.primary)),
+              ],
+              if (person.role == 'resident') ...[
+                const SizedBox(height: 24),
+                Text(l10n.feedbackTitle, style: theme.textTheme.titleLarge),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _kind,
+                  decoration: InputDecoration(labelText: l10n.feedbackTitle),
+                  items: [
+                    DropdownMenuItem(value: 'feedback', child: Text(l10n.kindFeedback)),
+                    DropdownMenuItem(value: 'complaint', child: Text(l10n.kindComplaint)),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) setState(() => _kind = value);
+                  },
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    for (var star = 1; star <= 5; star++)
+                      IconButton(
+                        onPressed: () => setState(() => _rating = star),
+                        icon: Icon(star <= _rating ? Icons.star : Icons.star_border),
+                        tooltip: '$star',
+                      ),
+                  ],
+                ),
+                TextField(controller: _comment, maxLines: 3, decoration: InputDecoration(labelText: l10n.feedbackHint)),
+                const SizedBox(height: 12),
+                FilledButton(onPressed: _busy ? null : _sendFeedback, child: Text(_busy ? l10n.loading : l10n.sendFeedback)),
+              ],
+              const SizedBox(height: 16),
+              OutlinedButton(
+                onPressed: () => ref.read(authControllerProvider.notifier).signOut(),
+                child: Text(l10n.signOut),
               ),
-              TextField(controller: _comment, maxLines: 3, decoration: InputDecoration(labelText: l10n.feedbackHint)),
-              const SizedBox(height: 12),
-              FilledButton(onPressed: _busy ? null : _sendFeedback, child: Text(_busy ? l10n.loading : l10n.sendFeedback)),
             ],
-            const SizedBox(height: 16),
-            OutlinedButton(
-              onPressed: () => ref.read(authControllerProvider.notifier).signOut(),
-              child: Text(l10n.signOut),
-            ),
-          ],
+          ),
         );
       },
     );

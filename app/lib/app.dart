@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:netsu_app/core/l10n/app_localizations_delegates.dart';
 import 'package:netsu_app/core/l10n/generated/app_localizations.dart';
 import 'package:netsu_app/core/router/app_router.dart';
 import 'package:netsu_app/core/theme/app_theme.dart';
@@ -14,10 +15,12 @@ class NetsuApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     final locale = ref.watch(localeControllerProvider);
     return MaterialApp.router(
+      debugShowCheckedModeBanner: false,
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
       locale: locale,
       supportedLocales: AppLocalizations.supportedLocales,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: appLocalizationsDelegates,
+      themeMode: ThemeMode.light,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       routerConfig: router,
@@ -31,8 +34,10 @@ class ConfigMissingApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      debugShowCheckedModeBanner: false,
+      localizationsDelegates: appLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      themeMode: ThemeMode.light,
       theme: AppTheme.light(),
       home: Builder(
         builder: (context) {

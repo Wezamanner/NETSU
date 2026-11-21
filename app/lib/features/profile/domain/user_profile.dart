@@ -11,6 +11,7 @@ class UserProfile {
     this.kebeleCode,
     this.lat,
     this.lng,
+    this.notificationPrefs = const {},
   });
 
   final String id;
@@ -24,4 +25,7 @@ class UserProfile {
   final String? kebeleCode;
   final double? lat;
   final double? lng;
+  final Map<String, bool> notificationPrefs;
+
+  bool pref(String key, {bool fallback = true}) => notificationPrefs[key] ?? fallback;
 }

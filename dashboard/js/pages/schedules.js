@@ -1,8 +1,9 @@
-import { t } from '../i18n.js'
+import { getLocale, t } from '../i18n.js'
 import { supabase } from '../supabase-client.js'
-import { scheduleBadge, searchInput, setBusy, skeletonTable, toast } from '../ui/components.js'
+import { confirmDialog, scheduleBadge, searchInput, setBusy, skeletonTable, toast } from '../ui/components.js'
 import { clear, el, field } from '../ui/dom.js'
 import { assignmentWarnings, blocksSave } from '../utils/schedule.js'
+import { previewResidentMessage } from '../utils/templates.js'
 import { addisLocalToUtc, formatAddisDate, formatAddisTime } from '../utils/time.js'
 
 export async function renderSchedules(outlet) {
@@ -23,6 +24,16 @@ export async function renderSchedules(outlet) {
   const workers = el('select', { multiple: true, size: '5' })
   const submitBtn = el('button', { type: 'submit', text: t('saveDraft') })
 
+  const previewDayBefore = el('p', { class: 'preview-item' })
+  const previewSameDay = el('p', { class: 'preview-item' })
+  const previewBox = el('div', { class: 'preview-box', hidden: true }, [
+    el('h3', { text: t('messagePreviewTitle') }),
+    el('strong', { text: t('dayBeforeLabel') }),
+    previewDayBefore,
+    el('strong', { text: t('sameDayLabel') }),
+    previewSameDay,
+  ])
+
   const form = el('form', { class: 'panel panel-pad' }, [
     el('h2', { text: t('saveDraft') }),
     el('div', { class: 'form-grid' }, [
@@ -35,7 +46,7 @@ export async function renderSchedules(outlet) {
     ]),
     field(t('workers'), workers),
     warning,
-    el('p', { class: 'muted', text: t('draftNote') }),
+    previewBox,
     submitBtn,
   ])
 
@@ -57,7 +68,7 @@ export async function renderSchedules(outlet) {
   outlet.append(
     el('header', { class: 'page-head' }, [
       el('h1', { text: t('schedules') }),
-      el('p', { class: 'muted', text: t('draftNote') }),
+      el('p', { class: 'muted', text: t('mapDisclaimer') }),
     ]),
     status,
     error,
@@ -84,6 +95,175 @@ export async function renderSchedules(outlet) {
     })))
   }
 
+  const openReasonDialog = ({ title, confirmLabel }) => new Promise((resolve) => {
+    const dialog = el('dialog', { class: 'modal' })
+    const input = el('textarea', { required: true, maxlength: '300' })
+    const err = el('p', { class: 'error', hidden: true })
+    const okBtn = el('button', { type: 'submit', text: confirmLabel })
+    const cancelBtn = el('button', {
+      type: 'button',
+      class: 'secondary',
+      text: t('cancel'),
+      onclick: () => {
+        dialog.close()
+        resolve(null)
+      },
+    })
+    const dlgForm = el('form', {}, [
+      el('h3', { text: title }),
+      err,
+      field(t('reasonLabel'), input),
+      el('div', { class: 'modal-actions' }, [cancelBtn, okBtn]),
+    ])
+    dlgForm.addEventListener('submit', (ev) => {
+      ev.preventDefault()
+      const val = input.value.trim()
+      if (!val) {
+        err.hidden = false
+        err.textContent = t('reasonRequired')
+        return
+      }
+      dialog.close()
+      resolve(val)
+    })
+    dialog.append(dlgForm)
+    dialog.addEventListener('cancel', () => resolve(null))
+    dialog.addEventListener('close', () => dialog.remove())
+    document.body.append(dialog)
+    dialog.showModal()
+    input.focus()
+  })
+
+  const openRescheduleDialog = (item) => {
+    const dialog = el('dialog', { class: 'modal modal-wide' })
+    const dInput = el('input', { type: 'date', required: true, value: item.collection_date })
+    const sInput = el('input', { type: 'time', required: true })
+    const eInput = el('input', { type: 'time' })
+    const rInput = el('textarea', { required: true, maxlength: '300' })
+    const err = el('p', { class: 'error', hidden: true })
+    const preview = el('p', { class: 'preview-item muted' })
+    const saveBtn = el('button', { type: 'submit', text: t('reschedule') })
+    const cancelBtn = el('button', {
+      type: 'button',
+      class: 'secondary',
+      text: t('cancel'),
+      onclick: () => dialog.close(),
+    })
+
+    const updatePreview = () => {
+      const iso = addisLocalToUtc(dInput.value, sInput.value)
+      preview.textContent = iso
+        ? previewResidentMessage({ type: 'reschedule', locale: getLocale(), expectedStartIso: iso })
+        : ''
+    }
+    dInput.addEventListener('change', updatePreview)
+    sInput.addEventListener('change', updatePreview)
+
+    const dlgForm = el('form', {}, [
+      el('h3', { text: `${t('reschedule')} — ${areaName.get(item.area_id) ?? ''}` }),
+      err,
+      el('div', { class: 'form-grid' }, [
+        field(t('collectionDate'), dInput),
+        field(t('startTime'), sInput),
+        field(t('endTime'), eInput),
+      ]),
+      field(t('reasonLabel'), rInput),
+      preview,
+      el('div', { class: 'modal-actions' }, [cancelBtn, saveBtn]),
+    ])
+
+    dlgForm.addEventListener('submit', async (ev) => {
+      ev.preventDefault()
+      err.hidden = true
+      const startIso = addisLocalToUtc(dInput.value, sInput.value)
+      const endIso = eInput.value ? addisLocalToUtc(dInput.value, eInput.value) : null
+      const reason = rInput.value.trim()
+      if (!startIso || new Date(startIso).getTime() <= Date.now()) {
+        err.hidden = false
+        err.textContent = t('pastTime')
+        return
+      }
+      if (endIso && new Date(endIso).getTime() <= new Date(startIso).getTime()) {
+        err.hidden = false
+        err.textContent = t('endBeforeStart')
+        return
+      }
+      if (!reason) {
+        err.hidden = false
+        err.textContent = t('reasonRequired')
+        return
+      }
+      setBusy(saveBtn, true, t('reschedule'))
+      const { data, error: rpcErr } = await supabase.rpc('reschedule_collection', {
+        target_schedule: item.id,
+        new_date: dInput.value,
+        new_expected_start: startIso,
+        new_expected_end: endIso,
+        reason,
+      })
+      setBusy(saveBtn, false, t('reschedule'))
+      if (rpcErr) {
+        err.hidden = false
+        err.textContent = rpcErr.message || t('scheduleStatusFailed')
+        return
+      }
+      item.collection_date = data?.collection_date ?? dInput.value
+      item.expected_start = data?.expected_start ?? startIso
+      item.expected_end = data?.expected_end ?? endIso
+      if (data?.status) item.status = data.status
+      toast(t('scheduleRescheduled'), 'success')
+      dialog.close()
+      drawList()
+    })
+
+    dialog.append(dlgForm)
+    dialog.addEventListener('close', () => dialog.remove())
+    document.body.append(dialog)
+    dialog.showModal()
+  }
+
+  const openHistoryDialog = async (item) => {
+    const dialog = el('dialog', { class: 'modal modal-wide' })
+    const listHost = el('div', {}, [el('p', { class: 'muted', text: t('loading') })])
+    const closeBtn = el('button', {
+      type: 'button',
+      class: 'secondary',
+      text: t('close'),
+      onclick: () => dialog.close(),
+    })
+    dialog.append(
+      el('h3', { text: `${t('history')} — ${areaName.get(item.area_id) ?? ''}` }),
+      listHost,
+      el('div', { class: 'modal-actions' }, [closeBtn]),
+    )
+    dialog.addEventListener('close', () => dialog.remove())
+    document.body.append(dialog)
+    dialog.showModal()
+
+    const { data, error: hErr } = await supabase
+      .from('schedule_history')
+      .select('id, action, changed_at, previous, new, reason')
+      .eq('schedule_id', item.id)
+      .order('changed_at', { ascending: false })
+    if (hErr || !data || data.length === 0) {
+      listHost.replaceChildren(el('p', { class: 'muted', text: t('noHistory') }))
+      return
+    }
+    const ul = el('ul', { class: 'history-list' })
+    for (const row of data) {
+      const when = `${formatAddisDate(row.changed_at)} · ${formatAddisTime(row.changed_at)}`
+      const nextStatus = row.new?.status ? ` → ${row.new.status}` : ''
+      const prevStatus = row.previous?.status ? `${row.previous.status}` : ''
+      const summary = `${row.action}${prevStatus || nextStatus ? `: ${prevStatus}${nextStatus}` : ''}`
+      ul.append(el('li', { class: 'history-item' }, [
+        el('div', { class: 'strong-cell', text: summary }),
+        el('div', { class: 'mono muted', text: when }),
+        row.reason ? el('div', { text: row.reason }) : null,
+      ]))
+    }
+    listHost.replaceChildren(ul)
+  }
+
   const drawList = () => {
     const filtered = schedules.filter((item) => {
       if (statusFilter !== 'all' && item.status !== statusFilter) return false
@@ -99,13 +279,116 @@ export async function renderSchedules(outlet) {
       tableHost.replaceChildren(el('p', { class: 'state', text: t('noMatches') }))
       return
     }
+
+    const transition = async (item, nextStatus, btn, label) => {
+      let reason = null
+      if (nextStatus === 'published') {
+        const previewText = previewResidentMessage({
+          type: 'day_before',
+          locale: getLocale(),
+          expectedStartIso: item.expected_start,
+        })
+        const ok = await confirmDialog({
+          title: t('confirmPublishTitle'),
+          body: `${t('confirmPublishBody')}\n\n${previewText}`,
+          confirmLabel: t('publish'),
+        })
+        if (!ok) return
+      } else if (nextStatus === 'delayed' || nextStatus === 'cancelled') {
+        reason = await openReasonDialog({
+          title: nextStatus === 'delayed' ? t('delay') : t('cancelSchedule'),
+          confirmLabel: nextStatus === 'delayed' ? t('delay') : t('cancelSchedule'),
+        })
+        if (!reason) return
+      }
+      hide(status)
+      hide(error)
+      setBusy(btn, true, label)
+      const { error: rpcError } = await supabase.rpc('update_schedule_status', {
+        target_schedule: item.id,
+        next_status: nextStatus,
+        reason,
+      })
+      setBusy(btn, false, label)
+      if (rpcError) {
+        show(error, rpcError.message || t('scheduleStatusFailed'))
+        toast(t('scheduleStatusFailed'), 'error')
+        return
+      }
+      item.status = nextStatus
+      const msg = nextStatus === 'published'
+        ? t('schedulePublished')
+        : nextStatus === 'assigned'
+          ? t('scheduleAssigned')
+          : nextStatus === 'delayed'
+            ? t('scheduleDelayed')
+            : t('scheduleCancelled')
+      show(status, msg)
+      toast(msg, 'success')
+      drawList()
+    }
+
     const body = el('tbody')
     for (const item of filtered) {
       const when = `${formatAddisDate(item.expected_start)} · ${formatAddisTime(item.expected_start)}`
+      const buttons = []
+      const terminal = item.status === 'completed' || item.status === 'cancelled'
+      if (item.status === 'draft') {
+        const btn = el('button', {
+          type: 'button',
+          class: 'btn-sm',
+          text: t('publish'),
+          onclick: () => transition(item, 'published', btn, t('publish')),
+        })
+        buttons.push(btn)
+      }
+      if (item.status === 'published' && (item.worker_ids?.length ?? 0) > 0) {
+        const btn = el('button', {
+          type: 'button',
+          class: 'secondary btn-sm',
+          text: t('markAssigned'),
+          onclick: () => transition(item, 'assigned', btn, t('markAssigned')),
+        })
+        buttons.push(btn)
+      }
+      if (!terminal) {
+        buttons.push(el('button', {
+          type: 'button',
+          class: 'secondary btn-sm',
+          text: t('reschedule'),
+          onclick: () => openRescheduleDialog(item),
+        }))
+      }
+      if (['published', 'assigned', 'on_the_way', 'in_progress'].includes(item.status)) {
+        const delayBtn = el('button', {
+          type: 'button',
+          class: 'secondary btn-sm',
+          text: t('delay'),
+          onclick: () => transition(item, 'delayed', delayBtn, t('delay')),
+        })
+        buttons.push(delayBtn)
+      }
+      if (!terminal && item.status !== 'draft') {
+        const cancelBtn = el('button', {
+          type: 'button',
+          class: 'secondary btn-sm',
+          text: t('cancelSchedule'),
+          onclick: () => transition(item, 'cancelled', cancelBtn, t('cancelSchedule')),
+        })
+        buttons.push(cancelBtn)
+      }
+      buttons.push(el('button', {
+        type: 'button',
+        class: 'secondary btn-sm',
+        text: t('history'),
+        onclick: () => openHistoryDialog(item),
+      }))
+
       body.append(el('tr', {}, [
         el('td', { class: 'strong-cell', text: areaName.get(item.area_id) ?? '' }),
         el('td', { class: 'mono', text: when }),
         el('td', {}, [scheduleBadge(item.status)]),
+        el('td', { class: 'cell-end' }, [el('div', { class: 'row-actions' }, buttons)]),
       ]))
     }
     tableHost.replaceChildren(el('table', {}, [
@@ -113,6 +396,7 @@ export async function renderSchedules(outlet) {
         el('th', { text: t('area') }),
         el('th', { text: t('expected') }),
         el('th', { text: t('status') }),
+        el('th', { text: t('actions') }),
       ])]),
       body,
     ]))
@@ -168,13 +452,25 @@ export async function renderSchedules(outlet) {
       text: item.name,
     }))])
   }
-  const refreshWarnings = () => {
+  const refreshWarningsAndPreview = () => {
     const startIso = addisLocalToUtc(date.value, start.value)
     const endIso = end.value ? addisLocalToUtc(date.value, end.value) : null
     if (!startIso) {
       hide(warning)
+      previewBox.hidden = true
       return
     }
+    previewBox.hidden = false
+    previewDayBefore.textContent = previewResidentMessage({
+      type: 'day_before',
+      locale: getLocale(),
+      expectedStartIso: startIso,
+    })
+    previewSameDay.textContent = previewResidentMessage({
+      type: 'same_day',
+      locale: getLocale(),
+      expectedStartIso: startIso,
+    })
     const selectedTruck = trucks.find((item) => item.id === truck.value)
     const messages = assignmentWarnings({
       truck: selectedTruck,
@@ -188,7 +484,7 @@ export async function renderSchedules(outlet) {
   }
   area.addEventListener('change', refreshRoutes)
   for (const input of [date, start, end, truck, workers]) {
-    input.addEventListener('change', refreshWarnings)
+    input.addEventListener('change', refreshWarningsAndPreview)
   }
   refreshRoutes()
 
@@ -297,6 +593,7 @@ export async function renderSchedules(outlet) {
     date.value = ''
     start.value = ''
     end.value = ''
+    previewBox.hidden = true
     hide(warning)
     show(status, t('scheduleSaved'))
     toast(t('scheduleSaved'), 'success')

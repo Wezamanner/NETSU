@@ -687,6 +687,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Received'**
   String get statusReceived;
+
+  /// No description provided for @quickActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick actions'**
+  String get quickActions;
+
+  /// No description provided for @reportGarbage.
+  ///
+  /// In en, this message translates to:
+  /// **'Report garbage'**
+  String get reportGarbage;
+
+  /// No description provided for @viewCalendar.
+  ///
+  /// In en, this message translates to:
+  /// **'View calendar'**
+  String get viewCalendar;
+
+  /// No description provided for @markAllRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark all read'**
+  String get markAllRead;
+
+  /// No description provided for @notifPrefsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notification preferences'**
+  String get notifPrefsTitle;
+
+  /// No description provided for @prefInApp.
+  ///
+  /// In en, this message translates to:
+  /// **'In-app inbox'**
+  String get prefInApp;
+
+  /// No description provided for @prefPush.
+  ///
+  /// In en, this message translates to:
+  /// **'Push notifications'**
+  String get prefPush;
+
+  /// No description provided for @prefSms.
+  ///
+  /// In en, this message translates to:
+  /// **'SMS alerts'**
+  String get prefSms;
+
+  /// No description provided for @comingSoonBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Coming soon'**
+  String get comingSoonBadge;
+
+  /// No description provided for @prefDayBefore.
+  ///
+  /// In en, this message translates to:
+  /// **'Day-before reminder'**
+  String get prefDayBefore;
+
+  /// No description provided for @prefSameDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Same-day reminder'**
+  String get prefSameDay;
+
+  /// No description provided for @prefOnTheWay.
+  ///
+  /// In en, this message translates to:
+  /// **'Team on the way'**
+  String get prefOnTheWay;
+
+  /// No description provided for @prefCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Collection completed'**
+  String get prefCompleted;
+
+  /// No description provided for @essentialNoticesLocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Delay, cancellation, and reschedule notices are essential and stay enabled.'**
+  String get essentialNoticesLocked;
+
+  /// No description provided for @prefsSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferences saved.'**
+  String get prefsSaved;
+
+  /// No description provided for @changeKebele.
+  ///
+  /// In en, this message translates to:
+  /// **'Update kebele'**
+  String get changeKebele;
+
+  /// No description provided for @kebeleUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Kebele updated.'**
+  String get kebeleUpdated;
+
+  /// No description provided for @completionNoteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Completion note (optional)'**
+  String get completionNoteTitle;
+
+  /// No description provided for @completionNoteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional note about the completed route.'**
+  String get completionNoteHint;
+
+  /// No description provided for @assignedReports.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned garbage reports'**
+  String get assignedReports;
+
+  /// No description provided for @adminNoteLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Municipality note'**
+  String get adminNoteLabel;
+
+  /// No description provided for @clearFilter.
+  ///
+  /// In en, this message translates to:
+  /// **'Show all'**
+  String get clearFilter;
+
+  /// No description provided for @selectedDaySchedules.
+  ///
+  /// In en, this message translates to:
+  /// **'Schedules on selected day'**
+  String get selectedDaySchedules;
 }
 
 class _AppLocalizationsDelegate

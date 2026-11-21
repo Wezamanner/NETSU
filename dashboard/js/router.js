@@ -1,6 +1,8 @@
+import { renderAnalytics } from './pages/analytics.js'
 import { renderAreas } from './pages/areas.js'
+import { renderFeedback } from './pages/feedback.js'
 import { renderHome } from './pages/home.js'
-import { renderPlaceholder } from './pages/placeholder.js'
+import { renderReports } from './pages/reports.js'
 import { renderRoutes } from './pages/routes.js'
 import { renderSchedules } from './pages/schedules.js'
 import { renderTrucks } from './pages/trucks.js'
@@ -13,12 +15,12 @@ const routes = {
   areas: renderAreas,
   users: renderUsers,
   schedules: renderSchedules,
-  reports: (outlet) => renderPlaceholder(outlet, 'reports'),
+  reports: renderReports,
   routes: renderRoutes,
   trucks: renderTrucks,
   workers: renderWorkers,
-  feedback: (outlet) => renderPlaceholder(outlet, 'feedback'),
-  analytics: (outlet) => renderPlaceholder(outlet, 'analytics'),
+  feedback: renderFeedback,
+  analytics: renderAnalytics,
 }
 
 export function currentRoute() {

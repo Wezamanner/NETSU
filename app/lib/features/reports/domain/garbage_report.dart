@@ -7,6 +7,8 @@ class GarbageReport {
     this.address,
     this.lat,
     this.lng,
+    this.adminNote,
+    this.completedAt,
   });
 
   final String id;
@@ -16,4 +18,6 @@ class GarbageReport {
   final String? address;
   final double? lat;
   final double? lng;
+  final String? adminNote;
+  final DateTime? completedAt;
 }

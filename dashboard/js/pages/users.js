@@ -1,16 +1,42 @@
 import { t } from '../i18n.js'
 import { supabase } from '../supabase-client.js'
-import { badge, confirmDialog, searchInput, skeletonTable, toast } from '../ui/components.js'
-import { clear, el } from '../ui/dom.js'
+import { badge, confirmDialog, searchInput, setBusy, skeletonTable, toast } from '../ui/components.js'
+import { clear, el, field } from '../ui/dom.js'
+import { normalizePhone } from '../utils/phone.js'
 
 export async function renderUsers(outlet) {
   clear(outlet)
+  const status = el('p', { class: 'success', role: 'status', hidden: true })
   const error = el('p', { class: 'error', role: 'alert', hidden: true })
   const tableHost = el('div', { class: 'table-wrap' })
   let allRows = []
+  let areas = []
   let currentId = null
   let query = ''
   let roleFilter = 'all'
+
+  // Create Worker / Admin form (uses admin-create-user Edge Function)
+  const newName = el('input', { required: true, maxlength: '120' })
+  const newPhone = el('input', { required: true, placeholder: '09XXXXXXXX' })
+  const newPassword = el('input', { type: 'password', required: true, minlength: '8' })
+  const newRole = el('select', {}, [
+    el('option', { value: 'worker', text: t('roleWorker') }),
+    el('option', { value: 'admin', text: t('roleAdmin') }),
+  ])
+  const newArea = el('select')
+  const createBtn = el('button', { type: 'submit', text: t('createAccountBtn') })
+
+  const createForm = el('form', { class: 'panel panel-pad' }, [
+    el('h2', { text: t('createAccountTitle') }),
+    el('div', { class: 'form-grid' }, [
+      field(t('fullName'), newName),
+      field(t('phone'), newPhone),
+      field(t('password'), newPassword),
+      field(t('role'), newRole),
+      field(t('area'), newArea),
+    ]),
+    createBtn,
+  ])
 
   const filterBar = el('div', { class: 'filter-pills', role: 'group', 'aria-label': t('role') })
   const roles = ['all', 'admin', 'worker', 'resident']
@@ -47,10 +73,33 @@ export async function renderUsers(outlet) {
       const self = person.id === currentId
       const roleTone = person.role === 'admin' ? 'info' : person.role === 'worker' ? 'warning' : 'neutral'
       const roleIcon = person.role === 'worker' ? 'workers' : 'users'
+
+      const areaSelect = el('select', { 'aria-label': t('area') })
+      areaSelect.append(el('option', { value: '', text: '—' }))
+      for (const a of areas) {
+        areaSelect.append(el('option', { value: a.id, text: `${a.kebele_code} — ${a.name}` }))
+      }
+      areaSelect.value = person.area_id ?? ''
+      areaSelect.addEventListener('change', async () => {
+        const nextArea = areaSelect.value || null
+        const { error: upErr } = await supabase
+          .from('profiles')
+          .update({ area_id: nextArea })
+          .eq('id', person.id)
+        if (upErr) {
+          toast(upErr.message, 'error')
+          areaSelect.value = person.area_id ?? ''
+          return
+        }
+        person.area_id = nextArea
+        toast(t('updateArea'), 'success')
+      })
+
       body.append(el('tr', {}, [
         el('td', { class: 'strong-cell', text: self ? `${person.full_name} (${t('you')})` : person.full_name }),
         el('td', { class: 'mono', text: person.phone }),
         el('td', {}, [badge(person.role, roleTone, roleIcon)]),
+        el('td', {}, [areaSelect]),
         el('td', {}, [
           badge(person.active ? t('active') : t('inactive'), person.active ? 'success' : 'neutral', person.active ? 'check' : 'xCircle'),
         ]),
@@ -92,6 +141,7 @@ export async function renderUsers(outlet) {
         el('th', { text: t('fullName') }),
         el('th', { text: t('phone') }),
         el('th', { text: t('role') }),
+        el('th', { text: t('area') }),
         el('th', { text: t('active') }),
         el('th', { text: '' }),
       ])]),
@@ -101,21 +151,72 @@ export async function renderUsers(outlet) {
 
   const load = async () => {
     tableHost.replaceChildren(skeletonTable(5))
-    const { data: sessionData } = await supabase.auth.getSession()
-    currentId = sessionData.session?.user.id ?? null
-    const { data, error: loadError } = await supabase
-      .from('profiles')
-      .select('id, full_name, phone, role, active')
-      .order('full_name')
-    if (loadError) {
+    const [sessionRes, profilesRes, areasRes] = await Promise.all([
+      supabase.auth.getSession(),
+      supabase.from('profiles').select('id, full_name, phone, role, active, area_id').order('full_name'),
+      supabase.from('service_areas').select('id, name, kebele_code').eq('active', true).order('kebele_code'),
+    ])
+    currentId = sessionRes.data.session?.user.id ?? null
+    if (profilesRes.error) {
       error.hidden = false
       error.textContent = t('setupBody')
       tableHost.replaceChildren(el('p', { class: 'state', text: t('empty') }))
       return
     }
-    allRows = data ?? []
+    areas = areasRes.data ?? []
+    newArea.replaceChildren(
+      el('option', { value: '', text: t('selectArea') }),
+      ...areas.map((a) => el('option', { value: a.id, text: `${a.kebele_code} — ${a.name}` })),
+    )
+    allRows = profilesRes.data ?? []
     draw()
   }
+
+  createForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault()
+    status.hidden = true
+    error.hidden = true
+    const phone = normalizePhone(newPhone.value)
+    if (!newName.value.trim()) {
+      error.hidden = false
+      error.textContent = t('fieldRequired')
+      return
+    }
+    if (!phone) {
+      error.hidden = false
+      error.textContent = t('invalidPhone')
+      return
+    }
+    if (newPassword.value.length < 8) {
+      error.hidden = false
+      error.textContent = t('passwordShort')
+      return
+    }
+    setBusy(createBtn, true, t('createAccountBtn'))
+    const { data, error: fnErr } = await supabase.functions.invoke('admin-create-user', {
+      body: {
+        fullName: newName.value.trim(),
+        phone,
+        password: newPassword.value,
+        role: newRole.value,
+        areaId: newArea.value || null,
+      },
+    })
+    setBusy(createBtn, false, t('createAccountBtn'))
+    if (fnErr || data?.error) {
+      error.hidden = false
+      error.textContent = data?.error || t('accountCreateFailed')
+      toast(t('accountCreateFailed'), 'error')
+      return
+    }
+    newName.value = ''
+    newPhone.value = ''
+    newPassword.value = ''
+    status.hidden = false
+    status.textContent = t('accountCreated')
+    toast(t('accountCreated'), 'success')
+    await load()
+  })
 
   drawFilters()
   const listPanel = el('section', { class: 'panel' }, [
@@ -137,7 +238,9 @@ export async function renderUsers(outlet) {
       el('h1', { text: t('users') }),
       el('p', { class: 'muted', text: t('peopleHelp') }),
     ]),
+    status,
     error,
+    createForm,
     listPanel,
   )
   await load()

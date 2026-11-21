@@ -1,33 +1,73 @@
-import { parseStops } from '../utils/fleet.js'
 import { t } from '../i18n.js'
+import { mountMap, setMarkers, setPolyline } from '../map/osm.js'
 import { supabase } from '../supabase-client.js'
 import { badge, searchInput, setBusy, skeletonTable, toast } from '../ui/components.js'
 import { clear, el, field } from '../ui/dom.js'
+import { parseStops } from '../utils/fleet.js'
 
 export async function renderRoutes(outlet) {
   clear(outlet)
   const status = el('p', { class: 'success', role: 'status', hidden: true })
   const error = el('p', { class: 'error', role: 'alert', hidden: true })
   const tableHost = el('div', { class: 'table-wrap' })
+  const mapHost = el('div', { class: 'osm-map', role: 'region', 'aria-label': t('routes') })
+  const stopListHost = el('ul', { class: 'stop-list' })
   let allRows = []
   let areaName = new Map()
+  let mapStops = []
   let query = ''
 
   const name = el('input', { required: true, maxlength: '80' })
   const area = el('select', { required: true })
   const description = el('textarea', { maxlength: '300' })
-  const stops = el('textarea', { maxlength: '2000' })
+  const stopLabelInput = el('input', { maxlength: '120', placeholder: t('stopNamePlaceholder') })
+  const stopsText = el('textarea', { maxlength: '2000' })
+  const clearStopsBtn = el('button', {
+    type: 'button',
+    class: 'secondary btn-sm',
+    text: t('clearStops'),
+    onclick: () => {
+      mapStops = []
+      drawMapStops()
+    },
+  })
   const submitBtn = el('button', { type: 'submit', text: t('saveRoute') })
+
+  const drawMapStops = () => {
+    setMarkers(
+      mapHost,
+      mapStops.map((s, idx) => ({ lat: s.lat, lng: s.lng, label: `${idx + 1}. ${s.name}` })),
+    )
+    setPolyline(mapHost, mapStops)
+    stopListHost.replaceChildren(...mapStops.map((s, idx) => el('li', { class: 'stop-item' }, [
+      el('span', { text: `${idx + 1}. ${s.name} (${s.lat.toFixed(4)}, ${s.lng.toFixed(4)})` }),
+      el('button', {
+        type: 'button',
+        class: 'secondary btn-sm',
+        text: t('remove'),
+        onclick: () => {
+          mapStops.splice(idx, 1)
+          drawMapStops()
+        },
+      }),
+    ])))
+    clearStopsBtn.hidden = mapStops.length === 0
+  }
 
   const form = el('form', { class: 'panel panel-pad' }, [
     el('h2', { text: t('routes') }),
     field(t('routeName'), name),
     field(t('area'), area),
     field(t('description'), description),
-    field(t('stops'), stops),
-    el('p', { class: 'muted', text: t('stopsHelp') }),
+    field(t('stops'), stopLabelInput),
+    el('p', { class: 'muted', text: t('clickMapAddStop') }),
+    mapHost,
+    el('div', { class: 'toolbar' }, [el('span'), clearStopsBtn]),
+    stopListHost,
+    field(`${t('stops')} (${t('stopsHelp')})`, stopsText),
     submitBtn,
   ])
+  clearStopsBtn.hidden = true
 
   const draw = () => {
     const filtered = allRows.filter((route) => {
@@ -124,6 +164,16 @@ export async function renderRoutes(outlet) {
     el('div', { class: 'split' }, [form, listPanel]),
   )
 
+  mountMap(mapHost, {
+    onClick: (lat, lng) => {
+      if (mapStops.length >= 40) return
+      const label = stopLabelInput.value.trim() || `Stop ${mapStops.length + 1}`
+      mapStops.push({ name: label, lat, lng, order: mapStops.length + 1 })
+      stopLabelInput.value = ''
+      drawMapStops()
+    },
+  })
+
   const { data: areas, error: areaError } = await supabase
     .from('service_areas')
     .select('id, name, kebele_code, active')
@@ -143,21 +193,29 @@ export async function renderRoutes(outlet) {
     event.preventDefault()
     hide(status)
     hide(error)
-    const parsed = parseStops(stops.value)
     if (!name.value.trim() || !area.value) {
       show(error, t('fieldRequired'))
       return
     }
-    if (!parsed.ok) {
-      show(error, t('invalidStops'))
-      return
+    let finalStops = mapStops.map((s, idx) => ({ name: s.name, lat: s.lat, lng: s.lng, order: idx + 1 }))
+    if (stopsText.value.trim()) {
+      const parsed = parseStops(stopsText.value)
+      if (!parsed.ok) {
+        show(error, t('invalidStops'))
+        return
+      }
+      const offset = finalStops.length
+      finalStops = [
+        ...finalStops,
+        ...parsed.stops.map((s, idx) => ({ ...s, order: offset + idx + 1 })),
+      ]
     }
     setBusy(submitBtn, true, t('saveRoute'))
     const { error: saveError } = await supabase.from('routes').insert({
       name: name.value.trim(),
       area_id: area.value,
       description: description.value.trim() || null,
-      stops: parsed.stops,
+      stops: finalStops,
     })
     setBusy(submitBtn, false, t('saveRoute'))
     if (saveError) {
@@ -167,7 +225,10 @@ export async function renderRoutes(outlet) {
     }
     name.value = ''
     description.value = ''
-    stops.value = ''
+    stopsText.value = ''
+    stopLabelInput.value = ''
+    mapStops = []
+    drawMapStops()
     show(status, t('routeSaved'))
     toast(t('routeSaved'), 'success')
     await load()

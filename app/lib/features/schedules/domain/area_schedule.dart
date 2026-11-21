@@ -16,6 +16,7 @@ class AreaSchedule {
     required this.status,
     required this.areaName,
     this.expectedEnd,
+    this.changeReason,
     this.stops = const [],
   });
 
@@ -24,6 +25,7 @@ class AreaSchedule {
   final DateTime? expectedEnd;
   final ScheduleStatus status;
   final String areaName;
+  final String? changeReason;
   final List<MapStop> stops;
 }
 

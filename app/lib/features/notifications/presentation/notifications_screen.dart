@@ -13,6 +13,7 @@ class NotificationsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final notices = ref.watch(noticesProvider);
+    final theme = Theme.of(context);
     return notices.when(
       loading: () => const LoadingView(),
       error: (error, _) => ErrorView(
@@ -20,7 +21,20 @@ class NotificationsScreen extends ConsumerWidget {
         onRetry: () => ref.invalidate(noticesProvider),
       ),
       data: (items) {
-        if (items.isEmpty) return EmptyState(title: l10n.emptyTitle, body: l10n.emptyBody);
+        if (items.isEmpty) {
+          return RefreshIndicator(
+            onRefresh: () async => ref.invalidate(noticesProvider),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+              children: [
+                Text(l10n.navNotifications, style: theme.textTheme.headlineSmall),
+                const SizedBox(height: 24),
+                EmptyState(title: l10n.emptyTitle, body: l10n.emptyBody),
+              ],
+            ),
+          );
+        }
+        final hasUnread = items.any((n) => !n.isRead);
         return RefreshIndicator(
           onRefresh: () async => ref.invalidate(noticesProvider),
           child: ListView.separated(
@@ -29,11 +43,24 @@ class NotificationsScreen extends ConsumerWidget {
             separatorBuilder: (_, _) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               if (index == 0) {
-                return Text(l10n.navNotifications, style: Theme.of(context).textTheme.headlineSmall);
+                return Row(
+                  children: [
+                    Expanded(child: Text(l10n.navNotifications, style: theme.textTheme.headlineSmall)),
+                    if (hasUnread)
+                      TextButton(
+                        onPressed: () async {
+                          await ref.read(notificationRepositoryProvider).markAllRead();
+                        },
+                        child: Text(l10n.markAllRead),
+                      ),
+                  ],
+                );
               }
               final notice = items[index - 1];
-              final theme = Theme.of(context);
               return Card(
+                color: notice.isRead
+                    ? null
+                    : theme.colorScheme.primaryContainer.withValues(alpha: 0.25),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -44,9 +71,17 @@ class NotificationsScreen extends ConsumerWidget {
                           Icon(
                             notice.isRead ? Icons.drafts_outlined : Icons.mark_email_unread_outlined,
                             size: 20,
+                            color: notice.isRead ? theme.colorScheme.onSurfaceVariant : theme.colorScheme.primary,
                           ),
                           const SizedBox(width: 8),
-                          Expanded(child: Text(notice.title, style: theme.textTheme.titleMedium)),
+                          Expanded(
+                            child: Text(
+                              notice.title,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: notice.isRead ? FontWeight.w500 : FontWeight.w700,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -62,7 +97,6 @@ class NotificationsScreen extends ConsumerWidget {
                           child: TextButton(
                             onPressed: () async {
                               await ref.read(notificationRepositoryProvider).markRead(notice.id);
-                              ref.invalidate(noticesProvider);
                             },
                             child: Text(l10n.markRead),
                           ),

@@ -1,20 +1,33 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:netsu_app/core/l10n/generated/app_localizations.dart';
+import 'package:netsu_app/features/notifications/data/notification_repository.dart';
 
-class AppShell extends StatelessWidget {
+class AppShell extends ConsumerWidget {
   const AppShell({required this.navigationShell, required this.destinations, super.key});
 
   final StatefulNavigationShell navigationShell;
   final List<NavigationDestination> destinations;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unread = ref.watch(unreadNoticesCountProvider);
+    final patched = [
+      for (final dest in destinations)
+        if (dest.label == AppLocalizations.of(context).navNotifications && unread > 0)
+          NavigationDestination(
+            icon: Badge.count(count: unread, child: dest.icon),
+            label: dest.label,
+          )
+        else
+          dest,
+    ];
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: NavigationBar(
         selectedIndex: navigationShell.currentIndex,
-        destinations: destinations,
+        destinations: patched,
         onDestinationSelected: navigationShell.goBranch,
       ),
     );

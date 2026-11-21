@@ -318,4 +318,75 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String get statusReceived => 'Fudhatame';
+
+  @override
+  String get quickActions => 'Tarkaanfii ariifataa';
+
+  @override
+  String get reportGarbage => 'Xurii gabaasi';
+
+  @override
+  String get viewCalendar => 'Dhaha guyyaa ilaali';
+
+  @override
+  String get markAllRead => 'Hunda akka dubbifametti mallatteessi';
+
+  @override
+  String get notifPrefsTitle => 'Filannoo beeksisaa';
+
+  @override
+  String get prefInApp => 'Beeksisa appii keessaa';
+
+  @override
+  String get prefPush => 'Beeksisa push';
+
+  @override
+  String get prefSms => 'Beeksisa SMS';
+
+  @override
+  String get comingSoonBadge => 'Yeroo dhiyootti';
+
+  @override
+  String get prefDayBefore => 'Yaadachiisa guyyaa duraa';
+
+  @override
+  String get prefSameDay => 'Yaadachiisa guyyaa sanaa';
+
+  @override
+  String get prefOnTheWay => 'Gareen karaa irra yoo jiru';
+
+  @override
+  String get prefCompleted => 'Walitti qabuun yoo xumuramu';
+
+  @override
+  String get essentialNoticesLocked =>
+      'Beeksisni turtii, haqamuu fi jijjiirama guyyaa barbaachisaa waan ta’eef yeroo hunda banaa tura.';
+
+  @override
+  String get prefsSaved => 'Filannoon olkaa’ameera.';
+
+  @override
+  String get changeKebele => 'Ganda haaromsi';
+
+  @override
+  String get kebeleUpdated => 'Gandi haaromfameera.';
+
+  @override
+  String get completionNoteTitle => 'Yaadannoo xumuraa (filannoo)';
+
+  @override
+  String get completionNoteHint =>
+      'Yaadannoo dabalataa waa’ee walitti qabuu xumuramee.';
+
+  @override
+  String get assignedReports => 'Gabaasota xurii ramadaman';
+
+  @override
+  String get adminNoteLabel => 'Yaadannoo bulchiinsaa';
+
+  @override
+  String get clearFilter => 'Hunda agarsiisi';
+
+  @override
+  String get selectedDaySchedules => 'Sagantaalee guyyaa filatamee';
 }

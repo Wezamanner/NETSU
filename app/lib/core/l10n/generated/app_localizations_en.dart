@@ -314,4 +314,74 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get statusReceived => 'Received';
+
+  @override
+  String get quickActions => 'Quick actions';
+
+  @override
+  String get reportGarbage => 'Report garbage';
+
+  @override
+  String get viewCalendar => 'View calendar';
+
+  @override
+  String get markAllRead => 'Mark all read';
+
+  @override
+  String get notifPrefsTitle => 'Notification preferences';
+
+  @override
+  String get prefInApp => 'In-app inbox';
+
+  @override
+  String get prefPush => 'Push notifications';
+
+  @override
+  String get prefSms => 'SMS alerts';
+
+  @override
+  String get comingSoonBadge => 'Coming soon';
+
+  @override
+  String get prefDayBefore => 'Day-before reminder';
+
+  @override
+  String get prefSameDay => 'Same-day reminder';
+
+  @override
+  String get prefOnTheWay => 'Team on the way';
+
+  @override
+  String get prefCompleted => 'Collection completed';
+
+  @override
+  String get essentialNoticesLocked =>
+      'Delay, cancellation, and reschedule notices are essential and stay enabled.';
+
+  @override
+  String get prefsSaved => 'Preferences saved.';
+
+  @override
+  String get changeKebele => 'Update kebele';
+
+  @override
+  String get kebeleUpdated => 'Kebele updated.';
+
+  @override
+  String get completionNoteTitle => 'Completion note (optional)';
+
+  @override
+  String get completionNoteHint => 'Optional note about the completed route.';
+
+  @override
+  String get assignedReports => 'Assigned garbage reports';
+
+  @override
+  String get adminNoteLabel => 'Municipality note';
+
+  @override
+  String get clearFilter => 'Show all';
+
+  @override
+  String get selectedDaySchedules => 'Schedules on selected day';
 }

@@ -29,7 +29,25 @@ class ScheduleCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(schedule.areaName),
             const SizedBox(height: 8),
-            Text(l10n.arrivalMayVary, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            Text(
+              l10n.arrivalMayVary,
+              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+            if (schedule.changeReason != null && schedule.changeReason!.trim().isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  schedule.changeReason!.trim(),
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface),
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             StatusChip(status: schedule.status),
             if (footer != null) ...[const SizedBox(height: 12), footer!],

@@ -308,4 +308,74 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get statusReceived => 'ተቀብሏል';
+
+  @override
+  String get quickActions => 'ፈጣን እርምጃዎች';
+
+  @override
+  String get reportGarbage => 'ቆሻሻ ሪፖርት አድርግ';
+
+  @override
+  String get viewCalendar => 'የቀን መቁጠሪያ እይ';
+
+  @override
+  String get markAllRead => 'ሁሉንም እንደተነበበ ምልክት አድርግ';
+
+  @override
+  String get notifPrefsTitle => 'የማሳወቂያ ምርጫዎች';
+
+  @override
+  String get prefInApp => 'በመተግበሪያ ውስጥ ማሳወቂያ';
+
+  @override
+  String get prefPush => 'የፑሽ ማሳወቂያዎች';
+
+  @override
+  String get prefSms => 'የአጭር መልዕክት (SMS) ማሳወቂያ';
+
+  @override
+  String get comingSoonBadge => 'በቅርቡ ይመጣል';
+
+  @override
+  String get prefDayBefore => 'ከአንድ ቀን በፊት ማስታወሻ';
+
+  @override
+  String get prefSameDay => 'የዕለቱ ማስታወሻ';
+
+  @override
+  String get prefOnTheWay => 'ቡድኑ በመንገድ ላይ ሲሆን';
+
+  @override
+  String get prefCompleted => 'መሰብሰብ ሲጠናቀቅ';
+
+  @override
+  String get essentialNoticesLocked =>
+      'የመዘግየት፣ የመሰረዝ እና የቀን ለውጥ ማሳወቂያዎች አስፈላጊ ስለሆኑ ሁልጊዜ በርተው ይቆያሉ።';
+
+  @override
+  String get prefsSaved => 'ምርጫዎች ተቀምጠዋል።';
+
+  @override
+  String get changeKebele => 'ቀበሌ ቀይር';
+
+  @override
+  String get kebeleUpdated => 'ቀበሌ ተዘምኗል።';
+
+  @override
+  String get completionNoteTitle => 'የማጠናቀቂያ ማስታወሻ (አማራጭ)';
+
+  @override
+  String get completionNoteHint => 'ስለተጠናቀቀው መሰብሰብ አማራጭ ማስታወሻ ያክሉ።';
+
+  @override
+  String get assignedReports => 'የተመደቡ የቆሻሻ ሪፖርቶች';
+
+  @override
+  String get adminNoteLabel => 'የማዘጋጃ ቤት ማስታወሻ';
+
+  @override
+  String get clearFilter => 'ሁሉንም አሳይ';
+
+  @override
+  String get selectedDaySchedules => 'በተመረጠው ቀን ያሉ መርሐግብሮች';
 }

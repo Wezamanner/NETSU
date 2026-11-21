@@ -10,12 +10,15 @@ class AppTheme {
   static ThemeData dark() => _build(Brightness.dark);
 
   static ThemeData _build(Brightness brightness) {
+    final isLight = brightness == Brightness.light;
     final scheme = ColorScheme.fromSeed(seedColor: _brand, brightness: brightness);
+    final scaffoldBg = isLight ? const Color(0xFFF4F6F5) : const Color(0xFF1A2220);
+    final cardBg = isLight ? Colors.white : const Color(0xFF222C29);
     final base = ThemeData(
       colorScheme: scheme,
       useMaterial3: true,
       fontFamily: _font,
-      scaffoldBackgroundColor: brightness == Brightness.light ? const Color(0xFFF4F6F5) : scheme.surface,
+      scaffoldBackgroundColor: scaffoldBg,
     );
     final radius = BorderRadius.circular(16);
     final button = FilledButton.styleFrom(
@@ -33,7 +36,7 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         elevation: 0,
-        color: scheme.surface,
+        color: cardBg,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
