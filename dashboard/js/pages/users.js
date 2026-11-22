@@ -2,7 +2,8 @@ import { t } from '../i18n.js'
 import { supabase } from '../supabase-client.js'
 import { badge, confirmDialog, searchInput, setBusy, skeletonTable, toast } from '../ui/components.js'
 import { clear, el, field } from '../ui/dom.js'
-import { normalizePhone } from '../utils/phone.js'
+import { functionErrorMessage } from '../utils/function-error.js'
+import { normalizeEthiopianMobile } from '../utils/phone.js'
 
 export async function renderUsers(outlet) {
   clear(outlet)
@@ -20,7 +21,7 @@ export async function renderUsers(outlet) {
   const newPhone = el('input', { required: true, placeholder: '09XXXXXXXX' })
   const newPassword = el('input', { type: 'password', required: true, minlength: '8' })
   const newRole = el('select', {}, [
-    el('option', { value: 'worker', text: t('roleWorker') }),
+    el('option', { value: 'resident', text: t('roleResident') }),
     el('option', { value: 'admin', text: t('roleAdmin') }),
   ])
   const newArea = el('select')
@@ -176,7 +177,7 @@ export async function renderUsers(outlet) {
     ev.preventDefault()
     status.hidden = true
     error.hidden = true
-    const phone = normalizePhone(newPhone.value)
+    const phone = normalizeEthiopianMobile(newPhone.value)
     if (!newName.value.trim()) {
       error.hidden = false
       error.textContent = t('fieldRequired')
@@ -204,9 +205,10 @@ export async function renderUsers(outlet) {
     })
     setBusy(createBtn, false, t('createAccountBtn'))
     if (fnErr || data?.error) {
+      const message = data?.error || await functionErrorMessage(fnErr, t('accountCreateFailed'))
       error.hidden = false
-      error.textContent = data?.error || t('accountCreateFailed')
-      toast(t('accountCreateFailed'), 'error')
+      error.textContent = message
+      toast(message, 'error')
       return
     }
     newName.value = ''

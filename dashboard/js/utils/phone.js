@@ -12,3 +12,8 @@ export function normalizeEthiopianMobile(input) {
 export function syntheticEmail(phone) {
   return `${phone.replace('+', '')}@jimma-waste.app`
 }
+
+/** Older dashboard builds imported this name. */
+export function normalizePhone(input) {
+  return normalizeEthiopianMobile(input)
+}
