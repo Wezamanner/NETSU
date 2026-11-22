@@ -32,7 +32,7 @@ jobs:
     name: Analyze and test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: subosito/flutter-action@v2
         with:
@@ -49,7 +49,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: subosito/flutter-action@v2
         with:
@@ -62,15 +62,21 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || vars.SUPABASE_URL || env.DEFAULT_SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || vars.SUPABASE_PUBLISHABLE_KEY || env.DEFAULT_SUPABASE_PUBLISHABLE_KEY }}
         run: |
-          missing=0
-          for name in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
-            if [ -z "${!name}" ]; then
-              echo "::error::$name is missing. Add it under Settings > Secrets and variables > Actions (Repository secrets or Repository variables)."
-              missing=1
-            fi
-          done
-          [ "$missing" -eq 0 ] || exit 1
-          jq -n --arg url "$SUPABASE_URL" --arg key "$SUPABASE_PUBLISHABLE_KEY" \
+          # Pasted secrets often carry spaces or line breaks, which split the compiler command.
+          url=$(printf '%s' "$SUPABASE_URL" | tr -d '[:space:]"')
+          key=$(printf '%s' "$SUPABASE_PUBLISHABLE_KEY" | tr -d '[:space:]"')
+          url=${url#SUPABASE_URL=}
+          key=${key#SUPABASE_PUBLISHABLE_KEY=}
+          if ! printf '%s' "$url" | grep -Eq '^https://[a-z0-9-]+\.supabase\.co/?$'; then
+            echo "::error::SUPABASE_URL must look like https://<project>.supabase.co. Fix or delete the secret."
+            exit 1
+          fi
+          case "$key" in
+            sb_secret_*) echo "::error::SUPABASE_PUBLISHABLE_KEY holds a SECRET key. Use the sb_publishable_ key and rotate the secret key."; exit 1 ;;
+            sb_publishable_*|eyJ*) ;;
+            *) echo "::error::SUPABASE_PUBLISHABLE_KEY must start with sb_publishable_. Fix or delete the secret."; exit 1 ;;
+          esac
+          jq -n --arg url "${url%/}" --arg key "$key" \
             '{SUPABASE_URL: $url, SUPABASE_PUBLISHABLE_KEY: $key}' > dart_defines.json
 
       - run: flutter pub get
@@ -112,9 +118,9 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -131,15 +137,21 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || vars.SUPABASE_URL || env.DEFAULT_SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || vars.SUPABASE_PUBLISHABLE_KEY || env.DEFAULT_SUPABASE_PUBLISHABLE_KEY }}
         run: |
-          missing=0
-          for name in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
-            if [ -z "${!name}" ]; then
-              echo "::error::$name is missing. Add it under Settings > Secrets and variables > Actions (Repository secrets or Repository variables)."
-              missing=1
-            fi
-          done
-          [ "$missing" -eq 0 ] || exit 1
-          jq -n --arg url "$SUPABASE_URL" --arg key "$SUPABASE_PUBLISHABLE_KEY" \
+          # Pasted secrets often carry spaces or line breaks, which split the compiler command.
+          url=$(printf '%s' "$SUPABASE_URL" | tr -d '[:space:]"')
+          key=$(printf '%s' "$SUPABASE_PUBLISHABLE_KEY" | tr -d '[:space:]"')
+          url=${url#SUPABASE_URL=}
+          key=${key#SUPABASE_PUBLISHABLE_KEY=}
+          if ! printf '%s' "$url" | grep -Eq '^https://[a-z0-9-]+\.supabase\.co/?$'; then
+            echo "::error::SUPABASE_URL must look like https://<project>.supabase.co. Fix or delete the secret."
+            exit 1
+          fi
+          case "$key" in
+            sb_secret_*) echo "::error::SUPABASE_PUBLISHABLE_KEY holds a SECRET key. Use the sb_publishable_ key and rotate the secret key."; exit 1 ;;
+            sb_publishable_*|eyJ*) ;;
+            *) echo "::error::SUPABASE_PUBLISHABLE_KEY must start with sb_publishable_. Fix or delete the secret."; exit 1 ;;
+          esac
+          jq -n --arg url "${url%/}" --arg key "$key" \
             '{SUPABASE_URL: $url, SUPABASE_PUBLISHABLE_KEY: $key}' > dart_defines.json
 
       - run: flutter pub get
