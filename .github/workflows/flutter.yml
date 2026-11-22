@@ -19,6 +19,9 @@ concurrency:
 
 env:
   FLUTTER_VERSION: '3.50.1'
+  # Publishable (client) values only; they ship inside every app build. Never put the secret key here.
+  DEFAULT_SUPABASE_URL: 'https://yadupzdfdhlzrrsijbuv.supabase.co'
+  DEFAULT_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_NObrw9Ej4sdDhNJCODcIDQ_G8gpwmSK'
 
 defaults:
   run:
@@ -56,8 +59,8 @@ jobs:
 
       - name: Write Supabase build config
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL || vars.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || vars.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || vars.SUPABASE_URL || env.DEFAULT_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || vars.SUPABASE_PUBLISHABLE_KEY || env.DEFAULT_SUPABASE_PUBLISHABLE_KEY }}
         run: |
           missing=0
           for name in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
@@ -119,8 +122,8 @@ jobs:
 
       - name: Write Supabase build config
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL || vars.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || vars.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || vars.SUPABASE_URL || env.DEFAULT_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || vars.SUPABASE_PUBLISHABLE_KEY || env.DEFAULT_SUPABASE_PUBLISHABLE_KEY }}
         run: |
           missing=0
           for name in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
