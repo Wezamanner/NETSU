@@ -193,6 +193,12 @@ export async function renderUsers(outlet) {
       error.textContent = t('passwordShort')
       return
     }
+    if (newRole.value === 'resident' && !newArea.value) {
+      error.hidden = false
+      error.textContent = t('residentNeedsArea')
+      newArea.focus()
+      return
+    }
     setBusy(createBtn, true, t('createAccountBtn'))
     const { data, error: fnErr } = await supabase.functions.invoke('admin-create-user', {
       body: {
@@ -205,7 +211,7 @@ export async function renderUsers(outlet) {
     })
     setBusy(createBtn, false, t('createAccountBtn'))
     if (fnErr || data?.error) {
-      const message = data?.error || await functionErrorMessage(fnErr, t('accountCreateFailed'))
+      const message = createUserErrorText(data?.error || await functionErrorMessage(fnErr, t('accountCreateFailed')))
       error.hidden = false
       error.textContent = message
       toast(message, 'error')
@@ -246,4 +252,14 @@ export async function renderUsers(outlet) {
     listPanel,
   )
   await load()
+}
+
+function createUserErrorText(message) {
+  const text = String(message ?? '')
+  if (/already (been )?registered|already exists|duplicate key/i.test(text)) return t('phoneTaken')
+  if (/Administrator access/i.test(text)) return t('adminSessionExpired')
+  if (/Role must be worker or admin/i.test(text)) return t('functionOutdated')
+  if (/Database error/i.test(text)) return `${t('accountCreateFailed')} (${text})`
+  if (/Failed to send a request|non-2xx/i.test(text)) return `${t('accountCreateFailed')} (${text})`
+  return text || t('accountCreateFailed')
 }

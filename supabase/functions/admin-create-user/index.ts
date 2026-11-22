@@ -1,4 +1,4 @@
-// Creates a worker or administrator. Deploy with the Supabase CLI.
+// Creates a resident, worker, or administrator. Deploy with the Supabase CLI.
 // The secret key stays in the function runtime and is never sent to the browser.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.86.0'
 
@@ -69,7 +69,15 @@ Deno.serve(async (request) => {
     return json({ error: 'Role must be resident, worker, or admin' }, 400)
   }
 
+  if (role === 'resident' && !body.areaId) {
+    return json({ error: 'Choose the resident kebele' }, 400)
+  }
+
   const admin = createClient(url, secretKey)
+  const { data: existing } = await admin.from('profiles').select('id').eq('phone', phone).maybeSingle()
+  if (existing != null) {
+    return json({ error: 'A user with this phone number has already been registered' }, 409)
+  }
   const email = `${phone.replace('+', '')}@jimma-waste.app`
   const { data, error } = await admin.auth.admin.createUser({
     email,
