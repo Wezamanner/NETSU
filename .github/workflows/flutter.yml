@@ -56,13 +56,17 @@ jobs:
 
       - name: Write Supabase build config
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || vars.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || vars.SUPABASE_PUBLISHABLE_KEY }}
         run: |
-          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_PUBLISHABLE_KEY" ]; then
-            echo "::error::Add the SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY repository secrets."
-            exit 1
-          fi
+          missing=0
+          for name in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is missing. Add it under Settings > Secrets and variables > Actions (Repository secrets or Repository variables)."
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
           jq -n --arg url "$SUPABASE_URL" --arg key "$SUPABASE_PUBLISHABLE_KEY" \
             '{SUPABASE_URL: $url, SUPABASE_PUBLISHABLE_KEY: $key}' > dart_defines.json
 
@@ -115,13 +119,17 @@ jobs:
 
       - name: Write Supabase build config
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || vars.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || vars.SUPABASE_PUBLISHABLE_KEY }}
         run: |
-          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_PUBLISHABLE_KEY" ]; then
-            echo "::error::Add the SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY repository secrets."
-            exit 1
-          fi
+          missing=0
+          for name in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is missing. Add it under Settings > Secrets and variables > Actions (Repository secrets or Repository variables)."
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
           jq -n --arg url "$SUPABASE_URL" --arg key "$SUPABASE_PUBLISHABLE_KEY" \
             '{SUPABASE_URL: $url, SUPABASE_PUBLISHABLE_KEY: $key}' > dart_defines.json
 
