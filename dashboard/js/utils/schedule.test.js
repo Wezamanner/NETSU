@@ -36,3 +36,23 @@ test('warns on overlap and blocks a truck that is in maintenance', () => {
   assert.equal(blocksSave(blocked), true)
   assert.equal(rangesOverlap(0, 10, 10, 20), false)
 })
+
+test('reassigning a schedule does not clash with itself', () => {
+  const schedules = [{
+    id: 'a',
+    truck_id: 'truck-1',
+    worker_ids: ['worker-1'],
+    status: 'assigned',
+    expected_start: '2026-11-22T12:00:00.000Z',
+    expected_end: null,
+  }]
+  const warnings = assignmentWarnings({
+    truck: { id: 'truck-1', maintenance: 'ok', availability: 'assigned' },
+    workerIds: ['worker-1'],
+    schedules,
+    startIso: '2026-11-22T12:00:00.000Z',
+    endIso: null,
+    ignoreId: 'a',
+  })
+  assert.deepEqual(warnings, [])
+})

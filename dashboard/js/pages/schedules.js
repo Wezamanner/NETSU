@@ -2,7 +2,7 @@ import { getLocale, t } from '../i18n.js'
 import { supabase } from '../supabase-client.js'
 import { confirmDialog, scheduleBadge, searchInput, setBusy, skeletonTable, toast } from '../ui/components.js'
 import { clear, el, field } from '../ui/dom.js'
-import { assignmentWarnings, blocksSave } from '../utils/schedule.js'
+import { assignmentWarnings, blocksSave, rangeEnd, rangesOverlap } from '../utils/schedule.js'
 import { previewResidentMessage } from '../utils/templates.js'
 import { addisLocalToUtc, formatAddisDate, formatAddisTime } from '../utils/time.js'
 
@@ -80,6 +80,12 @@ export async function renderSchedules(outlet) {
 
   let schedules = []
   let areaName = new Map()
+  let trucks = []
+  let workerRows = []
+  const reloadTrucks = async () => {
+    const { data } = await supabase.from('trucks').select('id, plate_number, availability, maintenance').order('plate_number')
+    if (data) trucks = data
+  }
   const statuses = ['all', 'draft', 'published', 'assigned', 'on_the_way', 'in_progress', 'completed', 'delayed', 'cancelled']
   const drawFilters = () => {
     filterBar.replaceChildren(...statuses.map((s) => el('button', {
@@ -222,6 +228,194 @@ export async function renderSchedules(outlet) {
     dialog.showModal()
   }
 
+  const openAssignDialog = (item) => {
+    const dialog = el('dialog', { class: 'modal modal-wide' })
+    const err = el('p', { class: 'error', role: 'alert', hidden: true })
+    const warn = el('p', { class: 'note', role: 'status', hidden: true })
+    const truckInput = el('select')
+    const workerList = el('fieldset', { class: 'check-list' }, [el('legend', { text: t('workers') })])
+    const reasonInput = el('textarea', { maxlength: '300' })
+    const markInput = el('input', { type: 'checkbox', checked: true })
+    const markRow = item.status === 'published'
+      ? el('label', { class: 'check-row' }, [markInput, el('span', { text: t('alsoMarkAssigned') })])
+      : null
+    const saveBtn = el('button', { type: 'submit', text: t('saveAssignment') })
+    const cancelBtn = el('button', {
+      type: 'button',
+      class: 'secondary',
+      text: t('cancel'),
+      onclick: () => dialog.close(),
+    })
+
+    fillSelect(truckInput, [{ value: '', text: t('noTruck') }, ...trucks.map((tr) => ({
+      value: tr.id,
+      text: `${tr.plate_number} · ${truckStateText(tr)}`,
+    }))])
+    truckInput.value = item.truck_id ?? ''
+    for (const option of truckInput.options) {
+      const tr = trucks.find((x) => x.id === option.value)
+      if (tr && tr.id !== item.truck_id && (tr.maintenance === 'in_maintenance' || tr.availability === 'unavailable')) {
+        option.disabled = true
+      }
+    }
+
+    const current = new Set(item.worker_ids ?? [])
+    const busyIds = new Set()
+    const startMs = new Date(item.expected_start).getTime()
+    const endMs = rangeEnd(startMs, item.expected_end)
+    for (const other of schedules) {
+      if (other.id === item.id || other.status === 'cancelled' || other.status === 'completed') continue
+      const oStart = new Date(other.expected_start).getTime()
+      if (rangesOverlap(startMs, endMs, oStart, rangeEnd(oStart, other.expected_end))) {
+        for (const id of other.worker_ids ?? []) busyIds.add(id)
+      }
+    }
+    const boxes = []
+    const candidates = workerRows.filter((w) => w.active || current.has(w.id))
+    if (candidates.length === 0) {
+      workerList.append(el('p', { class: 'muted', text: t('noWorkersYet') }))
+    }
+    for (const person of candidates) {
+      const box = el('input', {
+        type: 'checkbox',
+        value: person.id,
+        checked: person.active && current.has(person.id),
+        disabled: !person.active,
+      })
+      boxes.push(box)
+      const tags = [areaName.get(person.area_id) ?? t('noArea')]
+      if (person.area_id && person.area_id !== item.area_id) tags.push(t('otherArea'))
+      if (busyIds.has(person.id)) tags.push(t('busyAtThisTime'))
+      if (!person.active) tags.push(t('inactiveWillBeRemoved'))
+      workerList.append(el('label', { class: 'check-row' }, [
+        box,
+        el('span', {}, [
+          el('strong', { text: person.full_name }),
+          el('span', { class: 'muted', text: ` · ${tags.join(' · ')}` }),
+        ]),
+      ]))
+    }
+
+    const selectedWorkers = () => boxes.filter((b) => b.checked).map((b) => b.value)
+    const refresh = () => {
+      const codes = assignmentWarnings({
+        truck: trucks.find((tr) => tr.id === truckInput.value),
+        workerIds: selectedWorkers(),
+        schedules,
+        startIso: item.expected_start,
+        endIso: item.expected_end,
+        ignoreId: item.id,
+      })
+      if (codes.length) show(warn, codes.map(warningText).join(' '))
+      else hide(warn)
+      return codes
+    }
+    truckInput.addEventListener('change', refresh)
+    for (const b of boxes) b.addEventListener('change', refresh)
+    refresh()
+
+    const when = `${formatAddisDate(item.expected_start)} · ${formatAddisTime(item.expected_start)}`
+    const dlgForm = el('form', {}, [
+      el('h3', { text: `${t('assignCrew')} — ${areaName.get(item.area_id) ?? ''}` }),
+      el('p', { class: 'muted' }, [`${when} · `, scheduleBadge(item.status)]),
+      el('p', { class: 'muted', text: t('assignHelp') }),
+      err,
+      field(t('trucks'), truckInput),
+      workerList,
+      warn,
+      field(t('reasonOptional'), reasonInput),
+      markRow,
+      el('div', { class: 'modal-actions' }, [cancelBtn, saveBtn]),
+    ])
+
+    dlgForm.addEventListener('submit', async (ev) => {
+      ev.preventDefault()
+      hide(err)
+      const workerIds = selectedWorkers()
+      const truckId = truckInput.value || null
+      const markAssigned = Boolean(markRow && markInput.checked)
+      const crewRequired = ['assigned', 'on_the_way', 'in_progress'].includes(item.status)
+      if ((crewRequired || markAssigned) && workerIds.length === 0) {
+        show(err, t('assignNeedsWorker'))
+        return
+      }
+      const codes = refresh()
+      if (blocksSave(codes)) {
+        show(err, t('warnMaintenance'))
+        return
+      }
+      const removed = (item.worker_ids ?? []).filter((id) => !workerIds.includes(id))
+      const unchanged = truckId === (item.truck_id ?? null)
+        && removed.length === 0
+        && workerIds.every((id) => current.has(id))
+      if (unchanged && !markAssigned) {
+        show(err, t('assignNoChanges'))
+        return
+      }
+      if (codes.length || removed.length) {
+        const lines = []
+        if (codes.length) lines.push(codes.map(warningText).join(' '))
+        if (removed.length) {
+          const names = removed.map((id) => workerRows.find((w) => w.id === id)?.full_name ?? id)
+          lines.push(`${t('assignRemovesWorkers')} ${names.join(', ')}`)
+        }
+        const ok = await confirmDialog({
+          title: t('assignConfirmTitle'),
+          body: lines.join('\n\n'),
+          confirmLabel: t('saveAssignment'),
+        })
+        if (!ok) return
+      }
+      setBusy(saveBtn, true, t('saveAssignment'))
+      const { data, error: rpcErr } = await supabase.rpc('assign_schedule', {
+        target_schedule: item.id,
+        next_truck: truckId,
+        next_workers: workerIds,
+        reason: reasonInput.value.trim() || null,
+        mark_assigned: markAssigned,
+      })
+      setBusy(saveBtn, false, t('saveAssignment'))
+      if (rpcErr) {
+        show(err, rpcErr.message || t('assignFailed'))
+        toast(t('assignFailed'), 'error')
+        return
+      }
+      item.truck_id = data?.truck_id ?? truckId
+      item.worker_ids = workerIds
+      if (data?.status) item.status = data.status
+      await reloadTrucks()
+      const msg = markAssigned ? t('scheduleAssigned') : t('assignmentSaved')
+      show(status, msg)
+      toast(msg, 'success')
+      dialog.close()
+      drawList()
+    })
+
+    dialog.append(dlgForm)
+    dialog.addEventListener('close', () => dialog.remove())
+    document.body.append(dialog)
+    dialog.showModal()
+    truckInput.focus()
+  }
+
+  const crewText = (snapshot) => {
+    const plate = trucks.find((tr) => tr.id === snapshot?.truck_id)?.plate_number ?? t('noTruck')
+    const names = (snapshot?.worker_ids ?? []).map((id) => workerRows.find((w) => w.id === id)?.full_name ?? '?')
+    return `${plate} · ${names.length ? names.join(', ') : t('noWorkersAssigned')}`
+  }
+
+  const crewCell = (item) => {
+    const plate = trucks.find((tr) => tr.id === item.truck_id)?.plate_number
+    const names = (item.worker_ids ?? [])
+      .map((id) => workerRows.find((w) => w.id === id)?.full_name)
+      .filter(Boolean)
+    if (!plate && names.length === 0) return el('span', { class: 'muted', text: t('unassigned') })
+    return el('div', {}, [
+      el('div', { class: 'mono', text: plate ?? t('noTruck') }),
+      el('div', { class: 'muted', text: names.length ? names.join(', ') : t('noWorkersAssigned') }),
+    ])
+  }
+
   const openHistoryDialog = async (item) => {
     const dialog = el('dialog', { class: 'modal modal-wide' })
     const listHost = el('div', {}, [el('p', { class: 'muted', text: t('loading') })])
@@ -254,10 +448,15 @@ export async function renderSchedules(outlet) {
       const when = `${formatAddisDate(row.changed_at)} · ${formatAddisTime(row.changed_at)}`
       const nextStatus = row.new?.status ? ` → ${row.new.status}` : ''
       const prevStatus = row.previous?.status ? `${row.previous.status}` : ''
-      const summary = `${row.action}${prevStatus || nextStatus ? `: ${prevStatus}${nextStatus}` : ''}`
+      const summary = row.action === 'assignment'
+        ? t('assignCrew')
+        : `${row.action}${prevStatus || nextStatus ? `: ${prevStatus}${nextStatus}` : ''}`
       ul.append(el('li', { class: 'history-item' }, [
         el('div', { class: 'strong-cell', text: summary }),
         el('div', { class: 'mono muted', text: when }),
+        row.action === 'assignment'
+          ? el('div', { text: `${crewText(row.previous)} → ${crewText(row.new)}` })
+          : null,
         row.reason ? el('div', { text: row.reason }) : null,
       ]))
     }
@@ -316,6 +515,7 @@ export async function renderSchedules(outlet) {
         return
       }
       item.status = nextStatus
+      await reloadTrucks()
       const msg = nextStatus === 'published'
         ? t('schedulePublished')
         : nextStatus === 'assigned'
@@ -355,6 +555,12 @@ export async function renderSchedules(outlet) {
         buttons.push(el('button', {
           type: 'button',
           class: 'secondary btn-sm',
+          text: t('assignCrew'),
+          onclick: () => openAssignDialog(item),
+        }))
+        buttons.push(el('button', {
+          type: 'button',
+          class: 'secondary btn-sm',
           text: t('reschedule'),
           onclick: () => openRescheduleDialog(item),
         }))
@@ -387,6 +593,7 @@ export async function renderSchedules(outlet) {
       body.append(el('tr', {}, [
         el('td', { class: 'strong-cell', text: areaName.get(item.area_id) ?? '' }),
         el('td', { class: 'mono', text: when }),
+        el('td', {}, [crewCell(item)]),
         el('td', {}, [scheduleBadge(item.status)]),
         el('td', { class: 'cell-end' }, [el('div', { class: 'row-actions' }, buttons)]),
       ]))
@@ -395,6 +602,7 @@ export async function renderSchedules(outlet) {
       el('thead', {}, [el('tr', {}, [
         el('th', { text: t('area') }),
         el('th', { text: t('expected') }),
+        el('th', { text: t('crew') }),
         el('th', { text: t('status') }),
         el('th', { text: t('actions') }),
       ])]),
@@ -409,7 +617,7 @@ export async function renderSchedules(outlet) {
       supabase.from('service_areas').select('id, name, kebele_code').eq('active', true).order('kebele_code'),
       supabase.from('routes').select('id, name, area_id, active').eq('active', true).order('name'),
       supabase.from('trucks').select('id, plate_number, availability, maintenance').order('plate_number'),
-      supabase.from('profiles').select('id, full_name, active').eq('role', 'worker').eq('active', true).order('full_name'),
+      supabase.from('profiles').select('id, full_name, active, area_id').eq('role', 'worker').order('full_name'),
       supabase.from('collection_schedules').select('id, area_id, collection_date, expected_start, expected_end, truck_id, status').order('collection_date', { ascending: false }),
       supabase.from('schedule_workers').select('schedule_id, worker_id'),
       supabase.auth.getSession(),
@@ -422,8 +630,8 @@ export async function renderSchedules(outlet) {
 
   const areas = areaResult.data ?? []
   const routes = routeResult.data ?? []
-  const trucks = truckResult.data ?? []
-  const workerRows = workerResult.data ?? []
+  trucks = truckResult.data ?? []
+  workerRows = workerResult.data ?? []
   const links = linkResult.data ?? []
   schedules = (scheduleResult.data ?? []).map((item) => ({
     ...item,
@@ -441,7 +649,7 @@ export async function renderSchedules(outlet) {
     text: item.plate_number,
   }))])
   workers.replaceChildren()
-  for (const person of workerRows) {
+  for (const person of workerRows.filter((w) => w.active)) {
     workers.append(el('option', { value: person.id, text: person.full_name }))
   }
 
@@ -610,6 +818,13 @@ function fillSelect(node, options) {
 
 function selectedValues(node) {
   return [...node.selectedOptions].map((option) => option.value)
+}
+
+function truckStateText(truck) {
+  if (truck.maintenance === 'in_maintenance') return t('truckInMaintenance')
+  if (truck.availability === 'unavailable') return t('truckUnavailable')
+  if (truck.availability === 'assigned') return t('truckAssigned')
+  return t('truckAvailable')
 }
 
 function warningText(code) {

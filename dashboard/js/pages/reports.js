@@ -68,9 +68,22 @@ export async function renderReports(outlet) {
     const truckSel = el('select')
     truckSel.append(el('option', { value: '', text: t('unassigned') }))
     for (const tr of trucks) {
-      truckSel.append(el('option', { value: tr.id, text: tr.plate_number }))
+      const blocked = tr.maintenance === 'in_maintenance' || tr.availability === 'unavailable'
+      truckSel.append(el('option', {
+        value: tr.id,
+        text: blocked
+          ? `${tr.plate_number} · ${tr.maintenance === 'in_maintenance' ? t('truckInMaintenance') : t('truckUnavailable')}`
+          : tr.plate_number,
+        disabled: blocked && tr.id !== report.assigned_truck_id,
+      }))
     }
     truckSel.value = report.assigned_truck_id ?? ''
+
+    workerSel.addEventListener('change', () => {
+      if (workerSel.value && statusSel.value === 'received') statusSel.value = 'assigned'
+      if (!workerSel.value && statusSel.value === 'assigned') statusSel.value = 'received'
+    })
+    const formErr = el('p', { class: 'error', role: 'alert', hidden: true })
 
     const noteInput = el('textarea', { maxlength: '500' })
     noteInput.value = report.admin_note ?? ''
@@ -94,6 +107,7 @@ export async function renderReports(outlet) {
         el('span', { class: 'label', text: t('reportPhoto') }),
         photoSlot,
       ]),
+      formErr,
       el('div', { class: 'form-grid' }, [
         field(t('status'), statusSel),
         field(t('assignedWorker'), workerSel),
@@ -105,8 +119,15 @@ export async function renderReports(outlet) {
 
     form.addEventListener('submit', async (ev) => {
       ev.preventDefault()
-      setBusy(saveBtn, true, t('saveChanges'))
+      formErr.hidden = true
       const nextStatus = statusSel.value
+      if ((nextStatus === 'assigned' || nextStatus === 'in_progress') && !workerSel.value) {
+        formErr.hidden = false
+        formErr.textContent = t('assignNeedsWorker')
+        workerSel.focus()
+        return
+      }
+      setBusy(saveBtn, true, t('saveChanges'))
       const payload = {
         status: nextStatus,
         assigned_worker_id: workerSel.value || null,
@@ -251,7 +272,7 @@ export async function renderReports(outlet) {
       .limit(200),
     supabase.from('service_areas').select('id, name, kebele_code'),
     supabase.from('profiles').select('id, full_name').eq('role', 'worker').eq('active', true).order('full_name'),
-    supabase.from('trucks').select('id, plate_number').order('plate_number'),
+    supabase.from('trucks').select('id, plate_number, availability, maintenance').order('plate_number'),
   ])
 
   if (repRes.error) {
