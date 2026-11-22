@@ -389,4 +389,7 @@ class AppLocalizationsOm extends AppLocalizations {
 
   @override
   String get selectedDaySchedules => 'Sagantaalee guyyaa filatamee';
+
+  @override
+  String get noticeReschedule => 'Guyyaan jijjiirameera';
 }

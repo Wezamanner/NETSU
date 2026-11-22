@@ -84,6 +84,13 @@ class NotificationsScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
+                      if (_typeLabel(l10n, notice.type) != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          _typeLabel(l10n, notice.type)!,
+                          style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.primary),
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       Text(notice.message),
                       const SizedBox(height: 8),
@@ -111,4 +118,17 @@ class NotificationsScreen extends ConsumerWidget {
       },
     );
   }
+}
+
+String? _typeLabel(AppLocalizations l10n, String type) {
+  return switch (type) {
+    'day_before' => l10n.prefDayBefore,
+    'same_day' => l10n.prefSameDay,
+    'on_the_way' => l10n.prefOnTheWay,
+    'completed' => l10n.prefCompleted,
+    'delay' => l10n.statusDelayed,
+    'cancellation' => l10n.statusCancelled,
+    'reschedule' => l10n.noticeReschedule,
+    _ => null,
+  };
 }

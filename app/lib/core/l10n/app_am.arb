@@ -120,5 +120,6 @@
   "assignedReports": "የተመደቡ የቆሻሻ ሪፖርቶች",
   "adminNoteLabel": "የማዘጋጃ ቤት ማስታወሻ",
   "clearFilter": "ሁሉንም አሳይ",
-  "selectedDaySchedules": "በተመረጠው ቀን ያሉ መርሐግብሮች"
+  "selectedDaySchedules": "በተመረጠው ቀን ያሉ መርሐግብሮች",
+  "noticeReschedule": "ቀኑ ተቀይሯል"
 }

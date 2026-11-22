@@ -20,13 +20,19 @@ class AppTheme {
       fontFamily: _font,
       scaffoldBackgroundColor: scaffoldBg,
     );
+    final text = base.textTheme.apply(fontFamily: _font, bodyColor: scheme.onSurface, displayColor: scheme.onSurface).copyWith(
+      bodyLarge: base.textTheme.bodyLarge?.copyWith(fontSize: 16, height: 1.45, color: scheme.onSurface),
+      bodyMedium: base.textTheme.bodyMedium?.copyWith(fontSize: 16, height: 1.4, color: scheme.onSurface),
+      titleLarge: base.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurface),
+      headlineSmall: base.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700, color: scheme.onSurface),
+    );
     final radius = BorderRadius.circular(16);
     final button = FilledButton.styleFrom(
       minimumSize: const Size.fromHeight(48),
       shape: RoundedRectangleBorder(borderRadius: radius),
     );
     return base.copyWith(
-      textTheme: base.textTheme.apply(fontFamily: _font, bodyColor: scheme.onSurface, displayColor: scheme.onSurface),
+      textTheme: text,
       appBarTheme: AppBarTheme(
         backgroundColor: base.scaffoldBackgroundColor,
         foregroundColor: scheme.onSurface,

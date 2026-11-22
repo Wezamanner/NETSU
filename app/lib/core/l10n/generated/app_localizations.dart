@@ -825,6 +825,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Schedules on selected day'**
   String get selectedDaySchedules;
+
+  /// No description provided for @noticeReschedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Rescheduled'**
+  String get noticeReschedule;
 }
 
 class _AppLocalizationsDelegate

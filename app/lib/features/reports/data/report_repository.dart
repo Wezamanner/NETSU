@@ -29,7 +29,8 @@ class ReportRepository {
     final rows = await _client
         .from('garbage_reports')
         .select('id, description, status, address, lat, lng, admin_note, completed_at, created_at')
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .limit(50);
     return [for (final row in rows) _fromRow(row)];
   }
 
@@ -38,7 +39,8 @@ class ReportRepository {
         .from('garbage_reports')
         .select('id, description, status, address, lat, lng, admin_note, completed_at, created_at')
         .eq('assigned_worker_id', workerId)
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .limit(50);
     return [for (final row in rows) _fromRow(row)];
   }
 

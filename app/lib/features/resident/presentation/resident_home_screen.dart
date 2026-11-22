@@ -31,33 +31,41 @@ class ResidentHomeScreen extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(l10n.nextCollection, style: theme.textTheme.headlineSmall),
-                    if (profile?.kebeleCode != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        '${profile!.kebeleCode} · ${profile.areaName ?? ''}',
-                        style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (profile != null && profile.areaId == null)
-                TextButton.icon(
-                  onPressed: () => context.go('/resident/profile'),
-                  icon: const Icon(Icons.location_city_outlined, size: 18),
-                  label: Text(l10n.changeKebele),
-                ),
-            ],
+          Text(
+            profile == null || profile.fullName.trim().isEmpty ? l10n.appTitle : profile.fullName,
+            style: theme.textTheme.headlineSmall,
           ),
-          const SizedBox(height: 16),
-          if (schemaError) Text(l10n.schemaBanner),
+          const SizedBox(height: 4),
+          Text(l10n.subtitle, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          if (profile?.kebeleCode != null) ...[
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Chip(
+                avatar: Icon(Icons.location_city_outlined, size: 18, color: theme.colorScheme.primary),
+                label: Text('${profile!.kebeleCode} · ${profile.areaName ?? ''}'),
+                side: BorderSide(color: theme.colorScheme.outlineVariant),
+              ),
+            ),
+          ],
+          if (profile != null && profile.areaId == null) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => context.go('/resident/profile'),
+                icon: const Icon(Icons.location_city_outlined, size: 18),
+                label: Text(l10n.changeKebele),
+              ),
+            ),
+          ],
+          const SizedBox(height: 20),
+          Text(l10n.nextCollection, style: theme.textTheme.titleLarge),
+          const SizedBox(height: 12),
+          if (schemaError) ...[
+            Text(l10n.schemaBanner),
+            const SizedBox(height: 12),
+          ],
           schedules.when(
             loading: () => const SizedBox(height: 200, child: LoadingView()),
             error: (error, _) => ErrorView(
@@ -73,7 +81,7 @@ class ResidentHomeScreen extends ConsumerWidget {
             },
           ),
           const SizedBox(height: 24),
-          Text(l10n.quickActions, style: theme.textTheme.titleMedium),
+          Text(l10n.quickActions, style: theme.textTheme.titleLarge),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -121,10 +129,19 @@ class _QuickActionCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
           child: Row(
             children: [
-              Icon(icon, color: theme.colorScheme.primary),
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: theme.colorScheme.primary),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(

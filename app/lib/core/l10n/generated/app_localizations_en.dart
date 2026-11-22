@@ -384,4 +384,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get selectedDaySchedules => 'Schedules on selected day';
+
+  @override
+  String get noticeReschedule => 'Rescheduled';
 }

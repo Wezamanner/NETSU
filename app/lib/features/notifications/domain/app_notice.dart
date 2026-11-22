@@ -5,6 +5,7 @@ class AppNotice {
     required this.message,
     required this.isRead,
     required this.createdAt,
+    this.type = '',
   });
 
   final String id;
@@ -12,4 +13,5 @@ class AppNotice {
   final String message;
   final bool isRead;
   final DateTime createdAt;
+  final String type;
 }

@@ -1,6 +1,8 @@
 import { t } from '../i18n.js'
+import { mapConfig } from '../map-config.js'
 import { mountMap, setMarkers, setPolyline } from '../map/osm.js'
 import { supabase } from '../supabase-client.js'
+import { fetchDrivingLine } from '../utils/osrm.js'
 import { badge, searchInput, setBusy, skeletonTable, toast } from '../ui/components.js'
 import { clear, el, field } from '../ui/dom.js'
 import { parseStops } from '../utils/fleet.js'
@@ -16,6 +18,7 @@ export async function renderRoutes(outlet) {
   let areaName = new Map()
   let mapStops = []
   let query = ''
+  let routeRequest = 0
 
   const name = el('input', { required: true, maxlength: '80' })
   const area = el('select', { required: true })
@@ -39,6 +42,14 @@ export async function renderRoutes(outlet) {
       mapStops.map((s, idx) => ({ lat: s.lat, lng: s.lng, label: `${idx + 1}. ${s.name}` })),
     )
     setPolyline(mapHost, mapStops)
+    const requestId = ++routeRequest
+    if (mapStops.length >= 2) {
+      fetchDrivingLine(mapStops, { osrmUrl: mapConfig.osrmUrl })
+        .then((line) => {
+          if (requestId === routeRequest) setPolyline(mapHost, line)
+        })
+        .catch(() => {})
+    }
     stopListHost.replaceChildren(...mapStops.map((s, idx) => el('li', { class: 'stop-item' }, [
       el('span', { text: `${idx + 1}. ${s.name} (${s.lat.toFixed(4)}, ${s.lng.toFixed(4)})` }),
       el('button', {

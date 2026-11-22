@@ -6,7 +6,7 @@ import 'package:netsu_app/core/l10n/generated/app_localizations.dart';
 import 'package:netsu_app/core/location/device_location.dart';
 import 'package:netsu_app/core/utils/addis_time.dart';
 import 'package:netsu_app/core/utils/load_error.dart';
-import 'package:netsu_app/core/widgets/osm_map_view.dart';
+import 'package:netsu_app/core/widgets/driving_route_map.dart';
 import 'package:netsu_app/core/widgets/state_views.dart';
 import 'package:netsu_app/features/reports/data/report_repository.dart';
 import 'package:netsu_app/features/schedules/data/schedule_repository.dart';
@@ -54,16 +54,18 @@ class WorkerTodayScreen extends ConsumerWidget {
                   ),
                   if (item.stops.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    SizedBox(
-                      height: 220,
-                      child: OsmMapView(
-                        center: LatLng(item.stops.first.lat, item.stops.first.lng),
-                        points: [for (final stop in item.stops) LatLng(stop.lat, stop.lng)],
-                        line: [for (final stop in item.stops) LatLng(stop.lat, stop.lng)],
-                      ),
+                    DrivingRouteMap(
+                      stops: [for (final stop in item.stops) LatLng(stop.lat, stop.lng)],
                     ),
                     const SizedBox(height: 8),
-                    Text(l10n.mapDisclaimer),
+                    for (var i = 0; i < item.stops.length; i++)
+                      if (item.stops[i].name.trim().isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text('${i + 1}. ${item.stops[i].name}', style: theme.textTheme.bodyMedium),
+                        ),
+                    const SizedBox(height: 4),
+                    Text(l10n.mapDisclaimer, style: theme.textTheme.bodySmall),
                   ],
                   const SizedBox(height: 20),
                 ],
@@ -114,13 +116,25 @@ class WorkerTodayScreen extends ConsumerWidget {
   }
 }
 
-Future<void> _openDirections(BuildContext context, double lat, double lng) async {
+Future<void> _openDirections(
+  BuildContext context,
+  double lat,
+  double lng, {
+  List<(double, double)> via = const [],
+}) async {
   final here = await DeviceLocation.ask(context);
-  final uri = here == null
+  final points = [
+    if (here != null) '${here.latitude},${here.longitude}',
+    if (via.isNotEmpty)
+      for (final stop in via) '${stop.$1},${stop.$2}'
+    else
+      '$lat,$lng',
+  ];
+  final uri = points.length < 2
       ? Uri.https('www.openstreetmap.org', '/', {'mlat': '$lat', 'mlon': '$lng'})
       : Uri.https('www.openstreetmap.org', '/directions', {
           'engine': 'fossgis_osrm_car',
-          'route': '${here.latitude},${here.longitude};$lat,$lng',
+          'route': points.join(';'),
         });
   await launchUrl(uri, webOnlyWindowName: '_blank');
 }
@@ -134,11 +148,20 @@ class _Actions extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final actions = ScheduleStatusMachine.workerActions(schedule.status);
+    final forward = actions.where((status) => status != ScheduleStatus.delayed);
+    final delays = actions.where((status) => status == ScheduleStatus.delayed);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final action in actions) ...[
+        for (final action in forward) ...[
           FilledButton(
+            onPressed: () => _apply(context, ref, action),
+            child: Text(_label(l10n, action)),
+          ),
+          const SizedBox(height: 8),
+        ],
+        for (final action in delays) ...[
+          OutlinedButton(
             onPressed: () => _apply(context, ref, action),
             child: Text(_label(l10n, action)),
           ),
@@ -146,7 +169,12 @@ class _Actions extends ConsumerWidget {
         ],
         if (schedule.stops.isNotEmpty)
           OutlinedButton(
-            onPressed: () => _openDirections(context, schedule.stops.first.lat, schedule.stops.first.lng),
+            onPressed: () => _openDirections(
+              context,
+              schedule.stops.last.lat,
+              schedule.stops.last.lng,
+              via: [for (final stop in schedule.stops) (stop.lat, stop.lng)],
+            ),
             child: Text(l10n.openDirections),
           ),
       ],

@@ -120,5 +120,6 @@
   "assignedReports": "Assigned garbage reports",
   "adminNoteLabel": "Municipality note",
   "clearFilter": "Show all",
-  "selectedDaySchedules": "Schedules on selected day"
+  "selectedDaySchedules": "Schedules on selected day",
+  "noticeReschedule": "Rescheduled"
 }

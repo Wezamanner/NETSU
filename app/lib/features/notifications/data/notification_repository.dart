@@ -40,6 +40,7 @@ class NotificationRepository {
                     message: row['message'] as String,
                     isRead: row['is_read'] as bool? ?? false,
                     createdAt: DateTime.parse(row['created_at'] as String),
+                    type: row['type'] as String? ?? '',
                   ),
             ]);
   }

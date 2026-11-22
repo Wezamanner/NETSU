@@ -378,4 +378,7 @@ class AppLocalizationsAm extends AppLocalizations {
 
   @override
   String get selectedDaySchedules => 'በተመረጠው ቀን ያሉ መርሐግብሮች';
+
+  @override
+  String get noticeReschedule => 'ቀኑ ተቀይሯል';
 }

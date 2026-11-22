@@ -171,9 +171,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
             children: [
-              Text(person.fullName, style: theme.textTheme.headlineSmall),
-              const SizedBox(height: 4),
-              Text(person.phone, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: theme.colorScheme.onPrimary,
+                    child: Text(
+                      _initials(person.fullName),
+                      style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onPrimary, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(person.fullName, style: theme.textTheme.headlineSmall),
+                        const SizedBox(height: 2),
+                        Text(person.phone, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 16),
               Card(
                 child: Padding(
@@ -321,4 +342,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       },
     );
   }
+}
+
+String _initials(String name) {
+  final parts = name.trim().split(RegExp(r'\s+')).where((part) => part.isNotEmpty).take(2);
+  final chosen = parts.take(2).toList();
+  if (chosen.isEmpty) return 'N';
+  return chosen.map((part) => part.substring(0, 1).toUpperCase()).join();
 }

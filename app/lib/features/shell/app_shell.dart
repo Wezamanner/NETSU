@@ -18,6 +18,7 @@ class AppShell extends ConsumerWidget {
         if (dest.label == AppLocalizations.of(context).navNotifications && unread > 0)
           NavigationDestination(
             icon: Badge.count(count: unread, child: dest.icon),
+            selectedIcon: dest.selectedIcon,
             label: dest.label,
           )
         else
@@ -36,19 +37,19 @@ class AppShell extends ConsumerWidget {
 
 List<NavigationDestination> residentDestinations(AppLocalizations l10n) {
   return [
-    NavigationDestination(icon: const Icon(Icons.home_outlined), label: l10n.navHome),
-    NavigationDestination(icon: const Icon(Icons.calendar_month_outlined), label: l10n.navCalendar),
-    NavigationDestination(icon: const Icon(Icons.report_outlined), label: l10n.navReport),
-    NavigationDestination(icon: const Icon(Icons.notifications_outlined), label: l10n.navNotifications),
-    NavigationDestination(icon: const Icon(Icons.person_outline), label: l10n.navProfile),
+    NavigationDestination(icon: const Icon(Icons.home_outlined), selectedIcon: const Icon(Icons.home), label: l10n.navHome),
+    NavigationDestination(icon: const Icon(Icons.calendar_month_outlined), selectedIcon: const Icon(Icons.calendar_month), label: l10n.navCalendar),
+    NavigationDestination(icon: const Icon(Icons.report_outlined), selectedIcon: const Icon(Icons.report), label: l10n.navReport),
+    NavigationDestination(icon: const Icon(Icons.notifications_outlined), selectedIcon: const Icon(Icons.notifications), label: l10n.navNotifications),
+    NavigationDestination(icon: const Icon(Icons.person_outline), selectedIcon: const Icon(Icons.person), label: l10n.navProfile),
   ];
 }
 
 List<NavigationDestination> workerDestinations(AppLocalizations l10n) {
   return [
-    NavigationDestination(icon: const Icon(Icons.today_outlined), label: l10n.navToday),
-    NavigationDestination(icon: const Icon(Icons.event_note_outlined), label: l10n.navSchedule),
-    NavigationDestination(icon: const Icon(Icons.notifications_outlined), label: l10n.navNotifications),
-    NavigationDestination(icon: const Icon(Icons.person_outline), label: l10n.navProfile),
+    NavigationDestination(icon: const Icon(Icons.today_outlined), selectedIcon: const Icon(Icons.today), label: l10n.navToday),
+    NavigationDestination(icon: const Icon(Icons.event_note_outlined), selectedIcon: const Icon(Icons.event_note), label: l10n.navSchedule),
+    NavigationDestination(icon: const Icon(Icons.notifications_outlined), selectedIcon: const Icon(Icons.notifications), label: l10n.navNotifications),
+    NavigationDestination(icon: const Icon(Icons.person_outline), selectedIcon: const Icon(Icons.person), label: l10n.navProfile),
   ];
 }
