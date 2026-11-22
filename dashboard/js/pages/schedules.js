@@ -507,6 +507,7 @@ export async function renderSchedules(outlet) {
         target_schedule: item.id,
         next_status: nextStatus,
         reason,
+        completion_note: null,
       })
       setBusy(btn, false, label)
       if (rpcError) {

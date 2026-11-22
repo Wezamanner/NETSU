@@ -56,18 +56,18 @@ class ScheduleRepository {
     String? reason,
     String? completionNote,
   }) async {
+    final trimmedNote = completionNote?.trim();
     final params = <String, dynamic>{
       'target_schedule': scheduleId,
       'next_status': scheduleStatusToString(status),
       'reason': reason,
-      if (completionNote != null && completionNote.trim().isNotEmpty)
-        'completion_note': completionNote.trim(),
+      'completion_note': (trimmedNote != null && trimmedNote.isNotEmpty) ? trimmedNote : null,
     };
     try {
       await _client.rpc('update_schedule_status', params: params);
-    } on PostgrestException {
-      // Fallback if 4-arg migration hasn't been applied yet.
-      if (params.containsKey('completion_note')) {
+    } on PostgrestException catch (e) {
+      // Fallback only if the 4-arg migration has not been applied yet (PGRST202).
+      if (e.code == 'PGRST202' && params.containsKey('completion_note')) {
         params.remove('completion_note');
         await _client.rpc('update_schedule_status', params: params);
       } else {
